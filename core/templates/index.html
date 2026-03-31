@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="bg-white shadow overflow-hidden sm:rounded-md">
+    <div class="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center">
+        <div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900">
+                Escritório de Gestão Patrimonial
+            </h3>
+            <p class="mt-1 max-w-2xl text-sm text-gray-500">
+                Selecione uma Família / Caso para gerenciar.
+            </p>
+        </div>
+        <a href="{% url 'familia_create' %}"
+            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+            Nova Família
+        </a>
+    </div>
+    <ul class="divide-y divide-gray-200">
+        {% for familia in familias %}
+        <li>
+            <a href="{% url 'familia_detail' familia.id %}" class="block hover:bg-gray-50">
+                <div class="px-4 py-4 sm:px-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <!-- Icon -->
+                            <svg class="h-6 w-6 text-gray-400 mr-3" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4">
+                                </path>
+                            </svg>
+                            <p class="text-lg font-medium text-indigo-600 truncate">
+                                {{ familia.nome }}
+                            </p>
+                        </div>
+                        <div class="ml-2 flex-shrink-0 flex">
+                            <p
+                                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                {{ familia.membros.count }} Membros
+                            </p>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-sm text-gray-500">
+                        <p>Criado em: {{ familia.created_at|date:"d/m/Y" }}</p>
+                    </div>
+                </div>
+            </a>
+        </li>
+        {% empty %}
+        <li class="px-4 py-4 sm:px-6 text-gray-500 text-center">
+            Nenhuma família cadastrada.
+            <br>
+            <span class="text-xs">Rode "python manage.py seed_data" para criar exemplos.</span>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

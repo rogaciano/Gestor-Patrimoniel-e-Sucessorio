@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+    <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+        <div>
+            <h3 class="text-2xl leading-6 font-bold text-gray-900">
+                {{ holding.razao_social }}
+            </h3>
+            <p class="mt-1 max-w-2xl text-sm text-gray-500">
+                CNPJ: {{ holding.cnpj }} | {{ holding.get_tipo_societario_display }}
+            </p>
+        </div>
+        <div class="flex space-x-3">
+            <a href="{% url 'ativo_select_type_holding' holding.id %}"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700">
+                + Ativo
+            </a>
+            <a href="{% url 'participacao_add' holding.id %}"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700">
+                + Sócio
+            </a>
+            <a href="{% url 'familia_detail' familia.id %}"
+                class="text-indigo-600 hover:text-indigo-900 flex items-center">Voltar</a>
+        </div>
+    </div>
+</div>
+
+<!-- Shareholders Section -->
+<div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">
+            Composição Societária
+        </h3>
+        <p class="mt-1 text-sm text-gray-500">
+            Total: {{ total_participacao }}% {% if total_participacao != 100 %}<span class="text-red-600 font-bold">(⚠️
+                Deve somar 100%)</span>{% else %}<span class="text-green-600">✓</span>{% endif %}
+        </p>
+    </div>
+    <ul class="divide-y divide-gray-200">
+        {% for socio in socios %}
+        <li class="px-4 py-4 sm:px-6 hover:bg-gray-50">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                        <span class="text-indigo-600 font-semibold">{{ socio.percentual|floatformat:2 }}%</span>
+                    </div>
+                    <div class="ml-4">
+                        <a href="{% url 'pessoa_edit' socio.pessoa.id %}"
+                            class="text-sm font-medium text-indigo-600 hover:text-indigo-900 hover:underline">
+                            {{ socio.pessoa.nome_completo }}
+                        </a>
+                        <div class="text-sm text-gray-500">{{ socio.get_tipo_quota_display }}</div>
+                    </div>
+                </div>
+            </div>
+        </li>
+        {% empty %}
+        <li class="px-4 py-4 sm:px-6 text-center text-gray-500">
+            Nenhum sócio cadastrado ainda.
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<!-- Assets Section -->
+<div class="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+        <h3 class="text-lg leading-6 font-medium text-gray-900">
+            Ativos da Holding
+        </h3>
+    </div>
+    <ul class="divide-y divide-gray-200">
+        {% for item in ativos_with_type %}
+        <li class="px-4 py-4 sm:px-6 hover:bg-gray-50">
+            <div class="flex justify-between items-center">
+                <div class="flex-1">
+                    <a href="{% url 'ativo_edit' item.object.id %}"
+                        class="text-sm font-medium text-indigo-600 hover:text-indigo-900 hover:underline">
+                        {{ item.object.descricao }}
+                    </a>
+                    <p class="text-sm text-gray-500">{{ item.object.get_natureza_bem_display }}</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-right">
+                        <a href="{% url 'ativo_edit' item.object.id %}"
+                            class="text-sm font-semibold text-gray-900 hover:text-indigo-600">
+                            R$ {{ item.object.valor_mercado_atual|floatformat:2 }}
+                        </a>
+                    </div>
+                    <a href="{% url 'anexo_listar' item.type item.object.id %}"
+                        class="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50">
+                        📷 Anexos
+                    </a>
+                </div>
+            </div>
+        </li>
+        {% empty %}
+        <li class="px-4 py-4 sm:px-6 text-center text-gray-500">
+            Nenhum ativo vinculado a esta holding.
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+{% endblock %}
