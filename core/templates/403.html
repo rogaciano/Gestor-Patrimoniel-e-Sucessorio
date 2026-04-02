@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="mx-auto max-w-2xl">
+    <div class="glass-panel rounded-[32px] p-8 sm:p-10 text-center">
+        <p class="section-kicker">Acesso Negado</p>
+        <h1 class="section-title mt-4">Voce nao pode acessar este conteudo</h1>
+        <p class="section-subtitle mt-5">
+            Este ambiente restringe cada usuario a sua propria familia. Se este acesso deveria existir,
+            ajuste o vinculo do usuario no admin.
+        </p>
+
+        <div class="mt-8 flex flex-wrap justify-center gap-3">
+            <a href="{% url 'home' %}" class="btn-secondary">Voltar para inicio</a>
+            {% if request.user.is_staff or request.user.is_superuser %}
+            <a href="{% url 'admin:index' %}" class="btn-primary">Abrir admin</a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

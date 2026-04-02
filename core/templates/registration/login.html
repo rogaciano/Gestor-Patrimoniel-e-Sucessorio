@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="mx-auto max-w-xl">
+    <div class="glass-panel rounded-[32px] p-8 sm:p-10">
+        <p class="section-kicker">Acesso Seguro</p>
+        <h1 class="section-title mt-4">Entrar no SGPS</h1>
+        <p class="section-subtitle mt-4">
+            Administradores acessam toda a operacao. Usuarios vinculados a familia enxergam apenas o proprio nucleo.
+        </p>
+
+        <form method="post" class="mt-8 space-y-5">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+
+            <div>
+                <label for="{{ form.username.id_for_label }}" class="mb-2 block text-sm font-semibold text-slate-700">Usuario</label>
+                <input
+                    id="{{ form.username.id_for_label }}"
+                    name="{{ form.username.html_name }}"
+                    type="text"
+                    value="{{ form.username.value|default:'' }}"
+                    class="app-field"
+                    autocomplete="username"
+                    required>
+            </div>
+
+            <div>
+                <label for="{{ form.password.id_for_label }}" class="mb-2 block text-sm font-semibold text-slate-700">Senha</label>
+                <input
+                    id="{{ form.password.id_for_label }}"
+                    name="{{ form.password.html_name }}"
+                    type="password"
+                    class="app-field"
+                    autocomplete="current-password"
+                    required>
+            </div>
+
+            <button type="submit" class="btn-primary w-full justify-center">Entrar</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

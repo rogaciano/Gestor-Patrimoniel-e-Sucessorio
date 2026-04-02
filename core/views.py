@@ -1,12 +1,178 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.urls import reverse
+from functools import wraps
+
+from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
-from .models import Pessoa, Ativo, Familia, Holding, ParticipacaoHolding, AnexoImagem, Imovel, Veiculo, Empresa, Investimento
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import render, get_object_or_404, redirect
+
+from .models import Pessoa, Ativo, Familia, FamiliaAcesso, Holding, ParticipacaoHolding, AnexoImagem, Imovel, Veiculo, Empresa, Investimento
 from .forms import FamiliaForm, HoldingForm, ParticipacaoForm, PessoaForm, AnexoImagemForm, ImovelForm, VeiculoForm, EmpresaForm, InvestimentoForm
 from domain.services.partition_engine import PartitionEngine
 from decimal import Decimal
 
+
+def _user_is_admin(user):
+    return user.is_authenticated and (user.is_staff or user.is_superuser)
+
+
+def _manageable_by_user(user):
+    return _user_is_admin(user)
+
+
+def _get_user_accessible_familias(user):
+    if _user_is_admin(user):
+        return Familia.objects.all()
+
+    access = getattr(user, 'familia_access', None)
+    if access:
+        return Familia.objects.filter(id=access.familia_id)
+
+    return Familia.objects.none()
+
+
+def _require_family_access(user, familia):
+    if _user_is_admin(user):
+        return
+
+    access = getattr(user, 'familia_access', None)
+    if not access or access.familia_id != familia.id:
+        raise PermissionDenied("VocÃª nÃ£o tem acesso a esta famÃ­lia.")
+
+
+def _require_management_access(user):
+    if not _manageable_by_user(user):
+        raise PermissionDenied("Somente administradores podem alterar os dados.")
+
+
+def _resolve_related_familia(instance):
+    if isinstance(instance, Familia):
+        return instance
+    if isinstance(instance, Pessoa):
+        return instance.familia
+    if isinstance(instance, Holding):
+        return instance.familia
+    if isinstance(instance, Ativo):
+        owner = instance.proprietario
+        return _resolve_related_familia(owner) if owner else None
+
+    familia = getattr(instance, 'familia', None)
+    if familia is not None:
+        return familia
+
+    owner = getattr(instance, 'proprietario', None)
+    if owner is not None:
+        return _resolve_related_familia(owner)
+
+    return None
+
+
+def management_required(view_func):
+    @login_required
+    @wraps(view_func)
+    def wrapped(request, *args, **kwargs):
+        _require_management_access(request.user)
+        return view_func(request, *args, **kwargs)
+
+    return wrapped
+
+
+def _person_sort_key(person):
+    return (person.data_nascimento, person.nome_completo)
+
+
+def _collect_tree_member_ids(node):
+    collected = {node['person'].id}
+    if node['spouse']:
+        collected.add(node['spouse'].id)
+    for child in node['children']:
+        collected.update(_collect_tree_member_ids(child))
+    return collected
+
+
+def _build_tree_node(person, member_ids, children_index, spouse_map, branch_seen=None):
+    branch_seen = branch_seen or set()
+    if person.id in branch_seen:
+        return None
+
+    spouse = spouse_map.get(person.id)
+    current_ids = {person.id}
+    if spouse:
+        current_ids.add(spouse.id)
+
+    next_seen = branch_seen | current_ids
+    child_candidates = {}
+    for parent_id in current_ids:
+        for child in children_index.get(parent_id, []):
+            child_candidates[child.id] = child
+
+    children = []
+    for child in sorted(child_candidates.values(), key=_person_sort_key):
+        if child.id in next_seen:
+            continue
+        child_node = _build_tree_node(child, member_ids, children_index, spouse_map, next_seen)
+        if child_node:
+            children.append(child_node)
+
+    return {
+        'person': person,
+        'spouse': spouse,
+        'children': children,
+    }
+
+
+def _build_family_tree(members):
+    members = list(members)
+    if not members:
+        return []
+
+    member_by_id = {member.id: member for member in members}
+    member_ids = set(member_by_id)
+    children_index = {member_id: [] for member_id in member_ids}
+    spouse_map = {}
+
+    for member in members:
+        for parent_id in (member.pai_id, member.mae_id):
+            if parent_id in member_ids:
+                children_index[parent_id].append(member)
+        if member.conjuge_id in member_ids:
+            spouse = member_by_id[member.conjuge_id]
+            spouse_map[member.id] = spouse
+            spouse_map[spouse.id] = member
+
+    for parent_id, children in children_index.items():
+        deduped_children = {child.id: child for child in children}
+        children_index[parent_id] = sorted(deduped_children.values(), key=_person_sort_key)
+
+    roots = sorted(
+        [member for member in members if member.pai_id not in member_ids and member.mae_id not in member_ids],
+        key=_person_sort_key,
+    )
+
+    branches = []
+    covered_ids = set()
+
+    for root in roots:
+        if root.id in covered_ids:
+            continue
+        node = _build_tree_node(root, member_ids, children_index, spouse_map)
+        if not node:
+            continue
+        branches.append(node)
+        covered_ids.update(_collect_tree_member_ids(node))
+
+    for member in sorted(members, key=_person_sort_key):
+        if member.id in covered_ids:
+            continue
+        node = _build_tree_node(member, member_ids, children_index, spouse_map)
+        if not node:
+            continue
+        branches.append(node)
+        covered_ids.update(_collect_tree_member_ids(node))
+
+    return branches
+
 # --- Familia CRUD ---
+@management_required
 def familia_create(request):
     if request.method == 'POST':
         form = FamiliaForm(request.POST)
@@ -17,6 +183,7 @@ def familia_create(request):
         form = FamiliaForm()
     return render(request, 'crud/familia_form.html', {'form': form, 'title': 'Nova Família'})
 
+@management_required
 def familia_edit(request, familia_id):
     familia = get_object_or_404(Familia, id=familia_id)
     if request.method == 'POST':
@@ -29,6 +196,7 @@ def familia_edit(request, familia_id):
     return render(request, 'crud/familia_form.html', {'form': form, 'title': f'Editar {familia.nome}'})
 
 # --- Holding CRUD ---
+@management_required
 def holding_create(request, familia_id):
     familia = get_object_or_404(Familia, id=familia_id)
     if request.method == 'POST':
@@ -42,8 +210,10 @@ def holding_create(request, familia_id):
         form = HoldingForm()
     return render(request, 'crud/holding_form.html', {'form': form, 'familia': familia})
 
+@login_required
 def holding_detail(request, holding_id):
     holding = get_object_or_404(Holding, id=holding_id)
+    _require_family_access(request.user, holding.familia)
     socios = holding.socios.select_related('pessoa').all()
     ativos = Ativo.objects.filter(content_type__model='holding', object_id=holding.id)
     
@@ -58,15 +228,23 @@ def holding_detail(request, holding_id):
             'object': ativo,
             'type': ativo_type,
         })
+
+    holding_stats = {
+        'socios': socios.count(),
+        'ativos': len(ativos_with_type),
+        'valor_total': sum((ativo.valor_mercado_atual for ativo in ativos), Decimal('0')),
+    }
     
     return render(request, 'crud/holding_detail.html', {
         'holding': holding,
         'socios': socios,
         'ativos_with_type': ativos_with_type,
         'total_participacao': total_participacao,
+        'holding_stats': holding_stats,
         'familia': holding.familia,
     })
 
+@management_required
 def participacao_add(request, holding_id):
     holding = get_object_or_404(Holding, id=holding_id)
     if request.method == 'POST':
@@ -82,6 +260,7 @@ def participacao_add(request, holding_id):
 
 
 # --- Pessoa CRUD ---
+@management_required
 def pessoa_create(request, familia_id):
     familia = get_object_or_404(Familia, id=familia_id)
     if request.method == 'POST':
@@ -97,6 +276,7 @@ def pessoa_create(request, familia_id):
         form = PessoaForm(familia_id=familia_id)
     return render(request, 'crud/pessoa_form.html', {'form': form, 'familia': familia})
 
+@management_required
 def pessoa_edit(request, pessoa_id):
     pessoa = get_object_or_404(Pessoa, id=pessoa_id)
     familia = pessoa.familia
@@ -110,18 +290,19 @@ def pessoa_edit(request, pessoa_id):
     return render(request, 'crud/pessoa_form.html', {'form': form, 'familia': familia})
 
 # --- Ativo CRUD ---
+@management_required
 def ativo_select_type(request, pessoa_id):
     pessoa = get_object_or_404(Pessoa, id=pessoa_id)
     return render(request, 'crud/ativo_select_type.html', {'pessoa': pessoa})
 
+@management_required
 def ativo_select_type_holding(request, holding_id):
     holding = get_object_or_404(Holding, id=holding_id)
     return render(request, 'crud/ativo_select_type_holding.html', {'holding': holding})
 
 
+@management_required
 def ativo_create(request, pessoa_id, tipo):
-    from django.contrib.contenttypes.models import ContentType
-    
     pessoa = get_object_or_404(Pessoa, id=pessoa_id)
     
     # Map type to form and model
@@ -143,16 +324,15 @@ def ativo_create(request, pessoa_id, tipo):
             # Set proprietario using GenericForeignKey (defaulting to Pessoa for now)
             ativo.proprietario = pessoa
             ativo.save()
-            return redirect('simular_inventario', familia_id=pessoa.id)
+            return redirect('simular_inventario', pessoa_id=pessoa.id)
     else:
         form = FormClass()
         
     return render(request, 'crud/ativo_form.html', {'form': form, 'pessoa': pessoa, 'tipo': tipo})
 
+@management_required
 def ativo_create_holding(request, holding_id, tipo):
     """Create asset owned by a Holding"""
-    from django.contrib.contenttypes.models import ContentType
-    
     holding = get_object_or_404(Holding, id=holding_id)
     
     config = {
@@ -180,6 +360,7 @@ def ativo_create_holding(request, holding_id, tipo):
     return render(request, 'crud/ativo_form_holding.html', {'form': form, 'holding': holding, 'tipo': tipo})
 
 
+@management_required
 def ativo_edit(request, ativo_id):
     # Need to check specific type to bind correct form
     # Try getting the specific instance. Since we don't know the type easily without a polimorphic manager or extra query.
@@ -222,6 +403,7 @@ def ativo_edit(request, ativo_id):
     return render(request, 'crud/ativo_form.html', {'form': form, 'pessoa': ativo.proprietario, 'tipo': 'Ativo'})
 
 
+@login_required
 def simular_inventario_view(request, pessoa_id):
     """
     Simula inventário considerando:
@@ -229,6 +411,7 @@ def simular_inventario_view(request, pessoa_id):
     - Ativos indiretos via Holdings (baseado no % de participação)
     """
     pessoa = get_object_or_404(Pessoa, id=pessoa_id)
+    _require_family_access(request.user, pessoa.familia)
     
     # Ativos diretos (proprietário = pessoa)
     ativos_diretos = Ativo.objects.filter(
@@ -282,22 +465,56 @@ def simular_inventario_view(request, pessoa_id):
     
     return render(request, 'simulacao.html', {'resumo': resultado, 'pessoa': pessoa})
 
+@login_required
 def home(request):
-    # List Families
-    familias = Familia.objects.all()
-    return render(request, 'index.html', {'familias': familias})
+    familias = _get_user_accessible_familias(request.user).order_by('nome')
+    familia_ids = list(familias.values_list('id', flat=True))
+    membros = Pessoa.objects.filter(familia_id__in=familia_ids)
+    holdings = Holding.objects.filter(familia_id__in=familia_ids)
+    ativos = Ativo.objects.filter(content_type__model='pessoa', object_id__in=membros.values_list('id', flat=True)) | Ativo.objects.filter(
+        content_type__model='holding',
+        object_id__in=holdings.values_list('id', flat=True),
+    )
+    stats = {
+        'familias': familias.count(),
+        'membros': membros.count(),
+        'holdings': holdings.count(),
+        'ativos': ativos.count(),
+    }
+    return render(request, 'index.html', {'familias': familias, 'stats': stats})
 
+@login_required
 def familia_detail(request, familia_id):
     familia = get_object_or_404(Familia, id=familia_id)
-    membros = familia.membros.all()
-    return render(request, 'familia_detail.html', {'familia': familia, 'membros': membros})
+    _require_family_access(request.user, familia)
+    membros = list(familia.membros.all())
+    member_ids = [membro.id for membro in membros]
+    holding_ids = list(familia.holdings.values_list('id', flat=True))
+    ativos_pessoais = Ativo.objects.filter(content_type__model='pessoa', object_id__in=member_ids).count() if member_ids else 0
+    ativos_holdings = Ativo.objects.filter(content_type__model='holding', object_id__in=holding_ids).count() if holding_ids else 0
+    stats = {
+        'membros': len(membros),
+        'holdings': len(holding_ids),
+        'ativos': ativos_pessoais + ativos_holdings,
+    }
+    tree_branches = _build_family_tree(membros)
+    membros_ordenados = sorted(membros, key=_person_sort_key)
+    stats['ramos'] = len(tree_branches)
+    return render(request, 'familia_detail.html', {
+        'familia': familia,
+        'membros': membros_ordenados,
+        'stats': stats,
+        'tree_branches': tree_branches,
+    })
 
+@login_required
 def familia_dashboard(request, familia_id):
     """Dashboard visual com estatísticas e resumos da família"""
     from django.db.models import Sum, Count, Q
     from collections import defaultdict
     
     familia = get_object_or_404(Familia, id=familia_id)
+    _require_family_access(request.user, familia)
     
     # Estatísticas gerais
     stats = {
@@ -338,6 +555,37 @@ def familia_dashboard(request, familia_id):
     stats['investimentos_valor'] = investimentos.aggregate(Sum('valor_mercado_atual'))['valor_mercado_atual__sum'] or Decimal('0')
     
     stats['patrimonio_total'] = stats['imoveis_valor'] + stats['veiculos_valor'] + stats['empresas_valor'] + stats['investimentos_valor']
+    asset_mix = [
+        {
+            'label': 'Imóveis',
+            'count': stats['imoveis_count'],
+            'value': stats['imoveis_valor'],
+            'tone': 'warm',
+        },
+        {
+            'label': 'Veículos',
+            'count': stats['veiculos_count'],
+            'value': stats['veiculos_valor'],
+            'tone': 'ink',
+        },
+        {
+            'label': 'Empresas',
+            'count': stats['empresas_count'],
+            'value': stats['empresas_valor'],
+            'tone': 'soft',
+        },
+        {
+            'label': 'Investimentos',
+            'count': stats['investimentos_count'],
+            'value': stats['investimentos_valor'],
+            'tone': 'soft',
+        },
+    ]
+    for item in asset_mix:
+        if stats['patrimonio_total'] > 0:
+            item['share'] = ((item['value'] / stats['patrimonio_total']) * Decimal('100')).quantize(Decimal('0.1'))
+        else:
+            item['share'] = Decimal('0.0')
     
     # Distribuição geográfica dos imóveis
     distribuicao_geo = defaultdict(int)
@@ -360,6 +608,7 @@ def familia_dashboard(request, familia_id):
     context = {
         'familia': familia,
         'stats': stats,
+        'asset_mix': asset_mix,
         'distribuicao_geo': dict(distribuicao_geo),
         'imoveis_mapa': imoveis_mapa,
     }
@@ -368,6 +617,7 @@ def familia_dashboard(request, familia_id):
 
 
 # --- Anexos/Imagens ---
+@management_required
 def anexo_adicionar(request, model_name, object_id):
     """Adiciona anexo/imagem a qualquer entidade"""
     # Mapeia model_name para o ContentType
@@ -390,6 +640,9 @@ def anexo_adicionar(request, model_name, object_id):
             return redirect('home')
     
     entidade = get_object_or_404(model_class, id=object_id)
+    familia = _resolve_related_familia(entidade)
+    if familia:
+        _require_family_access(request.user, familia)
     
     if request.method == 'POST':
         form = AnexoImagemForm(request.POST, request.FILES)
@@ -411,6 +664,7 @@ def anexo_adicionar(request, model_name, object_id):
         'model_name': model_name,
     })
 
+@login_required
 def anexo_listar(request, model_name, object_id):
     """Lista anexos de uma entidade"""
     model_map = {
@@ -432,6 +686,9 @@ def anexo_listar(request, model_name, object_id):
             return redirect('home')
     
     entidade = get_object_or_404(model_class, id=object_id)
+    familia = _resolve_related_familia(entidade)
+    if familia:
+        _require_family_access(request.user, familia)
     content_type = ContentType.objects.get_for_model(model_class)
     
     anexos = AnexoImagem.objects.filter(

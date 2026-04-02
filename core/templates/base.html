@@ -1,30 +1,78 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão Patrimonial e Sucessória</title>
-    <!-- Tailwind CSS -->
+    <title>Gestao Patrimonial e Sucessoria</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Manrope', 'ui-sans-serif', 'system-ui'],
+                        display: ['Cormorant Garamond', 'ui-serif', 'Georgia'],
+                    },
+                    animation: {
+                        'fade-rise': 'fadeRise 620ms ease-out both',
+                    },
+                    keyframes: {
+                        fadeRise: {
+                            '0%': { opacity: '0', transform: 'translateY(18px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                    },
+                },
+            },
+        };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans">
-    <nav class="bg-white shadow">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex">
-                    <div class="flex-shrink-0 flex items-center">
-                        <span class="font-bold text-xl text-blue-900">SGPS</span>
+<body class="min-h-screen font-sans text-slate-900 antialiased">
+    <div class="ambient-orb ambient-orb-a"></div>
+    <div class="ambient-orb ambient-orb-b"></div>
+
+    <div class="relative z-10">
+        <nav class="px-4 pt-5 sm:px-6 lg:px-8">
+            <div class="glass-panel mx-auto flex max-w-7xl items-center justify-between rounded-[28px] px-5 py-4 sm:px-6">
+                <a href="{% url 'home' %}" class="flex items-center gap-4">
+                    <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#0f766e,#164e63)] text-sm font-extrabold tracking-[0.28em] text-white shadow-[0_18px_32px_rgba(15,118,110,0.28)]">
+                        SG
+                    </span>
+                    <div>
+                        <p class="text-[0.65rem] font-extrabold uppercase tracking-[0.35em] text-slate-500">Family Wealth Studio</p>
+                        <p class="font-display text-3xl leading-none text-slate-900">Gestao Patrimonial</p>
                     </div>
+                </a>
+                <div class="hidden items-center gap-3 lg:flex">
+                    {% if request.user.is_authenticated %}
+                    <span class="stat-pill">{{ request.user.username }}</span>
+                    <a href="{% url 'home' %}" class="btn-secondary">Carteira de Familias</a>
+                    {% if request.user.is_staff or request.user.is_superuser %}
+                    <a href="{% url 'admin:index' %}" class="btn-secondary">Admin</a>
+                    {% endif %}
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-ghost">Sair</button>
+                    </form>
+                    {% else %}
+                    <a href="{% url 'login' %}" class="btn-primary">Entrar</a>
+                    {% endif %}
                 </div>
             </div>
-        </div>
-    </nav>
+        </nav>
 
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {% block content %}
-        {% endblock %}
-    </main>
+        <main class="mx-auto w-full max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
+            <div class="fade-rise">
+                {% block content %}
+                {% endblock %}
+            </div>
+        </main>
+    </div>
 </body>
 </html>

@@ -1,132 +1,188 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
-    <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
+<section class="grid gap-6 xl:grid-cols-[1.35fr,0.95fr]">
+    <div class="glass-panel rounded-[32px] p-8 sm:p-10">
+        <p class="section-kicker">Dossie Familiar</p>
+        <h1 class="section-title mt-4">{{ familia.nome }}</h1>
+        <p class="section-subtitle mt-5">
+            Organize membros, estruturas societarias e patrimonio em uma mesma narrativa visual.
+            Esta tela virou o centro de operacao da familia.
+        </p>
+
+        <div class="mt-8 flex flex-wrap gap-3">
+            <a href="{% url 'familia_dashboard' familia.id %}" class="btn-accent">Abrir Dashboard</a>
+            {% if request.user.is_staff or request.user.is_superuser %}
+            <a href="{% url 'pessoa_create' familia.id %}" class="btn-primary">Novo Membro</a>
+            <a href="{% url 'holding_create' familia.id %}" class="btn-secondary">Nova Holding</a>
+            {% endif %}
+            <a href="{% url 'home' %}" class="btn-ghost">Voltar</a>
+        </div>
+    </div>
+
+    <div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
+        <div class="stat-card p-5">
+            <p class="stat-label">Membros</p>
+            <p class="stat-value mt-3">{{ stats.membros }}</p>
+        </div>
+        <div class="stat-card p-5">
+            <p class="stat-label">Holdings</p>
+            <p class="stat-value mt-3">{{ stats.holdings }}</p>
+        </div>
+        <div class="stat-card p-5">
+            <p class="stat-label">Ativos</p>
+            <p class="stat-value mt-3">{{ stats.ativos }}</p>
+        </div>
+    </div>
+</section>
+
+{% if familia.holdings.all %}
+<section class="glass-panel mt-8 rounded-[32px] p-6 sm:p-8">
+    <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-            <h3 class="text-2xl leading-6 font-bold text-gray-900">
-                {{ familia.nome }}
-            </h3>
-            <p class="mt-1 max-w-2xl text-sm text-gray-500">
-                Gestão de Membros e Sucessão
+            <p class="section-kicker">Estruturas Societarias</p>
+            <h2 class="mini-title mt-3">Holdings patrimoniais</h2>
+            <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+                Sociedades com quadro societario, ativos vinculados e visao consolidada para a familia.
             </p>
         </div>
-        <div class="flex space-x-3">
-            <a href="{% url 'familia_dashboard' familia.id %}"
-                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none">
-                📊 Dashboard
-            </a>
-            <a href="{% url 'pessoa_create' familia.id %}"
-                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none">
-                + Membro
-            </a>
-            <a href="{% url 'holding_create' familia.id %}"
-                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none">
-                + Holding
-            </a>
-            <a href="{% url 'home' %}" class="text-indigo-600 hover:text-indigo-900 flex items-center">Voltar</a>
-        </div>
+        <span class="stat-pill">{{ familia.holdings.count }} estruturas ativas</span>
     </div>
-</div>
 
-<!-- Holdings Section -->
-{% if familia.holdings.all %}
-<div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
-    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-        <h3 class="text-lg leading-6 font-medium text-gray-900">🏢 Holdings Patrimoniais</h3>
-        <p class="mt-1 text-sm text-gray-500">Estruturas de proteção patrimonial da família</p>
-    </div>
-    <ul class="divide-y divide-gray-200">
+    <div class="mt-8 grid gap-4 lg:grid-cols-2">
         {% for holding in familia.holdings.all %}
-        <li class="px-4 py-4 sm:px-6 hover:bg-purple-50 transition-colors cursor-pointer"
-            onclick="window.location='{% url 'holding_detail' holding.id %}'">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0 h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
-                        <span class="text-2xl">🏢</span>
-                    </div>
-                    <div class="ml-4">
-                        <p class="text-sm font-medium text-gray-900">{{ holding.razao_social }}</p>
-                        <p class="text-sm text-gray-500">
-                            {{ holding.get_tipo_societario_display }} |
-                            {{ holding.socios.count }} sócio(s) |
-                            Constituída em {{ holding.data_constituicao|date:"d/m/Y" }}
-                        </p>
+        <a href="{% url 'holding_detail' holding.id %}" class="stat-card group block p-6 transition duration-200 hover:-translate-y-1 hover:shadow-[0_26px_48px_rgba(15,23,42,0.12)]">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-start gap-4">
+                    <span class="avatar-ring">HD</span>
+                    <div>
+                        <p class="text-xl font-semibold tracking-tight text-slate-900">{{ holding.razao_social }}</p>
+                        <p class="mt-2 text-sm text-slate-500">{{ holding.get_tipo_societario_display }}</p>
                     </div>
                 </div>
-                <svg class="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd"
-                        d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                        clip-rule="evenodd" />
-                </svg>
+                <span class="data-chip data-chip-soft">{{ holding.socios.count }} socios</span>
             </div>
-        </li>
+            <div class="surface-divider mt-6 grid gap-3 pt-5 text-sm text-slate-600 sm:grid-cols-2">
+                <div>
+                    <p class="font-semibold text-slate-900">Constituicao</p>
+                    <p class="mt-1">{{ holding.data_constituicao|date:"d/m/Y" }}</p>
+                </div>
+                <div>
+                    <p class="font-semibold text-slate-900">Navegacao</p>
+                    <p class="mt-1 text-teal-700 transition group-hover:translate-x-1">Abrir visao societaria</p>
+                </div>
+            </div>
+        </a>
         {% endfor %}
-    </ul>
-</div>
+    </div>
+</section>
 {% endif %}
 
-<!-- Pessoas/Membros Section -->
-<div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
-    <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-        <h3 class="text-lg leading-6 font-medium text-gray-900">👥 Membros da Família</h3>
+<section x-data="{ memberView: 'cards' }" class="glass-panel mt-8 rounded-[32px] p-6 sm:p-8">
+    <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+            <p class="section-kicker">Pessoas</p>
+            <h2 class="mini-title mt-3">Membros da familia</h2>
+            <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+                Acesse cadastro, simulacao de partilha e inclusao de ativos a partir de cada perfil.
+                Agora voce tambem pode alternar para uma visao hierarquica da arvore familiar.
+            </p>
+        </div>
+        <div class="flex flex-col items-start gap-3 sm:items-end">
+            <div class="inline-flex rounded-full border border-[rgba(20,35,45,0.1)] bg-white/70 p-1">
+                <button
+                    type="button"
+                    @click="memberView = 'cards'"
+                    class="rounded-full px-4 py-2 text-sm font-extrabold tracking-tight transition"
+                    :class="memberView === 'cards' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-600 hover:bg-white/80'">
+                    Cards
+                </button>
+                <button
+                    type="button"
+                    @click="memberView = 'tree'"
+                    class="rounded-full px-4 py-2 text-sm font-extrabold tracking-tight transition"
+                    :class="memberView === 'tree' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-600 hover:bg-white/80'">
+                    Arvore
+                </button>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <span class="stat-pill">{{ stats.membros }} perfis</span>
+                <span class="stat-pill">{{ stats.ramos }} ramo(s)</span>
+            </div>
+        </div>
     </div>
-</div>
 
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-    {% for membro in membros %}
-    <div class="bg-white overflow-hidden shadow rounded-lg border hover:border-indigo-500 transition-colors">
-        <div class="px-4 py-5 sm:p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
+    <div x-show="memberView === 'cards'" x-transition.opacity.duration.200ms class="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {% for membro in membros %}
+        <article class="stat-card p-6">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-start gap-4">
                     {% if membro.foto %}
-                    <img class="h-12 w-12 rounded-full object-cover border-2 border-indigo-500"
-                        src="{{ membro.foto.url }}" alt="{{ membro.nome_completo }}">
+                    <img class="h-14 w-14 rounded-[1.2rem] object-cover shadow-lg" src="{{ membro.foto.url }}" alt="{{ membro.nome_completo }}">
                     {% else %}
-                    <div class="h-12 w-12 rounded-full bg-indigo-500 flex items-center justify-center">
-                        <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                        </svg>
-                    </div>
+                    <span class="avatar-ring">{{ membro.nome_completo|slice:":2"|upper }}</span>
                     {% endif %}
-                </div>
-                <div class="ml-5 w-0 flex-1">
-                    <div class="flex justify-between">
-                        <dt class="text-sm font-medium text-gray-500 truncate">
-                            {{ membro.get_regime_bens_display|default:"Membro da Família" }}
-                        </dt>
-                        <a href="{% url 'pessoa_edit' membro.id %}" class="text-gray-400 hover:text-gray-600">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
-                                fill="currentColor">
-                                <path
-                                    d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                            </svg>
-                        </a>
+                    <div>
+                        <p class="text-lg font-semibold leading-tight text-slate-900">{{ membro.nome_completo }}</p>
+                        <p class="mt-2 text-sm text-slate-500">{{ membro.get_regime_bens_display|default:"Membro da familia" }}</p>
                     </div>
-                    <dd>
-                        <div class="text-lg font-medium text-gray-900">
-                            {{ membro.nome_completo }}
-                        </div>
-                    </dd>
                 </div>
+                {% if request.user.is_staff or request.user.is_superuser %}
+                <a href="{% url 'pessoa_edit' membro.id %}" class="ink-link text-sm font-semibold">Editar</a>
+                {% endif %}
             </div>
+
+            <div class="surface-divider mt-6 flex flex-wrap gap-2 pt-5">
+                <span class="data-chip data-chip-soft">{{ membro.data_nascimento|date:"d/m/Y" }}</span>
+                {% if membro.conjuge %}
+                <span class="data-chip data-chip-warm">Possui conjuge</span>
+                {% endif %}
+            </div>
+
+            <div class="mt-6 flex flex-wrap gap-3">
+                <a href="{% url 'simular_inventario' membro.id %}" class="btn-secondary">Simular Partilha</a>
+                {% if request.user.is_staff or request.user.is_superuser %}
+                <a href="{% url 'ativo_select_type' membro.id %}" class="btn-primary">Novo Ativo</a>
+                {% endif %}
+            </div>
+        </article>
+        {% empty %}
+        <div class="empty-state rounded-[28px] p-10 text-center md:col-span-2 xl:col-span-3">
+            <p class="section-kicker">Sem Perfis</p>
+            <h3 class="mini-title mt-3">Ainda nao ha membros cadastrados</h3>
+            {% if request.user.is_staff or request.user.is_superuser %}
+            <div class="mt-6">
+                <a href="{% url 'pessoa_create' familia.id %}" class="btn-primary">Cadastrar primeiro membro</a>
+            </div>
+            {% endif %}
         </div>
-        <div class="bg-gray-50 px-4 py-4 sm:px-6 flex justify-between">
-            <div class="text-sm">
-                <a href="{% url 'simular_inventario' membro.id %}"
-                    class="font-medium text-indigo-600 hover:text-indigo-500">
-                    Simular Partilha
-                </a>
-            </div>
-            <div class="text-sm">
-                <a href="{% url 'ativo_select_type' membro.id %}"
-                    class="font-medium text-green-600 hover:text-green-500">
-                    + Ativo
-                </a>
-            </div>
-        </div>
+        {% endfor %}
     </div>
-    {% endfor %}
-</div>
+
+    <div x-cloak x-show="memberView === 'tree'" x-transition.opacity.duration.200ms class="mt-8">
+        {% if tree_branches %}
+        <div class="grid gap-6 2xl:grid-cols-2">
+            {% for node in tree_branches %}
+            <div class="rounded-[28px] border border-[rgba(20,35,45,0.08)] bg-white/35 p-4 sm:p-6">
+                <div class="mb-4 flex items-center justify-between gap-3">
+                    <p class="text-sm font-extrabold uppercase tracking-[0.18em] text-slate-500">
+                        Ramo {{ forloop.counter|stringformat:"02d" }}
+                    </p>
+                    <span class="data-chip data-chip-soft">{{ node.children|length }} descendente(s) direto(s)</span>
+                </div>
+                {% include 'partials/tree_node.html' with node=node only %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state rounded-[28px] p-10 text-center">
+            <p class="section-kicker">Arvore indisponivel</p>
+            <h3 class="mini-title mt-3">Ainda nao ha vinculos suficientes</h3>
+            <p class="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-600">
+                Cadastre pais, maes e conjuges para transformar a visualizacao em uma arvore familiar.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</section>
 {% endblock %}

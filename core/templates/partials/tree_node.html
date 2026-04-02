@@ -1,0 +1,89 @@
+<article class="relative">
+    <div class="stat-card p-5">
+        <div class="grid gap-4 {% if node.spouse %}xl:grid-cols-2{% endif %}">
+            <div class="rounded-[24px] border border-[rgba(20,35,45,0.08)] bg-white/80 p-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="flex items-start gap-4">
+                        {% if node.person.foto %}
+                        <img class="h-14 w-14 rounded-[1.2rem] object-cover shadow-lg" src="{{ node.person.foto.url }}" alt="{{ node.person.nome_completo }}">
+                        {% else %}
+                        <span class="avatar-ring">{{ node.person.nome_completo|slice:":2"|upper }}</span>
+                        {% endif %}
+                        <div>
+                            <p class="text-lg font-semibold leading-tight text-slate-900">{{ node.person.nome_completo }}</p>
+                            <p class="mt-2 text-sm text-slate-500">{{ node.person.get_regime_bens_display|default:"Membro da familia" }}</p>
+                        </div>
+                    </div>
+                    {% if request.user.is_staff or request.user.is_superuser %}
+                    <a href="{% url 'pessoa_edit' node.person.id %}" class="ink-link text-sm font-semibold">Editar</a>
+                    {% endif %}
+                </div>
+                <div class="surface-divider mt-5 flex flex-wrap gap-2 pt-4">
+                    <span class="data-chip data-chip-soft">{{ node.person.data_nascimento|date:"d/m/Y" }}</span>
+                    {% if not node.person.pai and not node.person.mae %}
+                    <span class="data-chip data-chip-warm">Raiz do ramo</span>
+                    {% endif %}
+                </div>
+                <div class="mt-5 flex flex-wrap gap-3">
+                    <a href="{% url 'simular_inventario' node.person.id %}" class="btn-secondary">Simular</a>
+                    {% if request.user.is_staff or request.user.is_superuser %}
+                    <a href="{% url 'ativo_select_type' node.person.id %}" class="btn-primary">Ativo</a>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if node.spouse %}
+            <div class="rounded-[24px] border border-[rgba(20,35,45,0.08)] bg-white/70 p-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="flex items-start gap-4">
+                        {% if node.spouse.foto %}
+                        <img class="h-14 w-14 rounded-[1.2rem] object-cover shadow-lg" src="{{ node.spouse.foto.url }}" alt="{{ node.spouse.nome_completo }}">
+                        {% else %}
+                        <span class="avatar-ring">{{ node.spouse.nome_completo|slice:":2"|upper }}</span>
+                        {% endif %}
+                        <div>
+                            <p class="text-lg font-semibold leading-tight text-slate-900">{{ node.spouse.nome_completo }}</p>
+                            <p class="mt-2 text-sm text-slate-500">Conjuge no ramo familiar</p>
+                        </div>
+                    </div>
+                    {% if request.user.is_staff or request.user.is_superuser %}
+                    <a href="{% url 'pessoa_edit' node.spouse.id %}" class="ink-link text-sm font-semibold">Editar</a>
+                    {% endif %}
+                </div>
+                <div class="surface-divider mt-5 flex flex-wrap gap-2 pt-4">
+                    <span class="data-chip data-chip-soft">{{ node.spouse.data_nascimento|date:"d/m/Y" }}</span>
+                    <span class="data-chip data-chip-warm">Vinculo conjugal</span>
+                </div>
+                <div class="mt-5 flex flex-wrap gap-3">
+                    <a href="{% url 'simular_inventario' node.spouse.id %}" class="btn-secondary">Simular</a>
+                    {% if request.user.is_staff or request.user.is_superuser %}
+                    <a href="{% url 'ativo_select_type' node.spouse.id %}" class="btn-primary">Ativo</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="surface-divider mt-5 flex flex-wrap items-center justify-between gap-3 pt-4">
+            <div class="flex flex-wrap gap-2">
+                {% if node.children %}
+                <span class="data-chip data-chip-soft">{{ node.children|length }} descendente(s)</span>
+                {% else %}
+                <span class="data-chip data-chip-warm">Sem descendentes cadastrados</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if node.children %}
+    <div class="tree-connector-rail relative ml-4 mt-4 space-y-4 pl-6 sm:ml-8 sm:pl-8">
+        {% for child in node.children %}
+        <div class="relative">
+            <span class="tree-connector-arm absolute -left-6 top-10 w-6 sm:-left-8 sm:w-8"></span>
+            <span class="tree-connector-dot absolute -left-[1.05rem] top-[2.05rem] sm:-left-[1.3rem]"></span>
+            {% include 'partials/tree_node.html' with node=child only %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</article>

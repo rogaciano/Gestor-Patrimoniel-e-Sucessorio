@@ -93,6 +93,20 @@ class Familia(AuditModel):
     def __str__(self):
         return self.nome
 
+class FamiliaAcesso(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='familia_access')
+    familia = models.ForeignKey(Familia, on_delete=models.CASCADE, related_name='acessos')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Acesso de FamÃ­lia'
+        verbose_name_plural = 'Acessos de FamÃ­lia'
+
+    def __str__(self):
+        return f"{self.user} -> {self.familia}"
+
+
 class Pessoa(AuditModel):
     REGIMES_BENS = [
         ('CP', 'Comunhão Parcial'),
