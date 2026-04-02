@@ -1,0 +1,22 @@
+﻿[Unit]
+Description=SGPS Gunicorn
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+User=sgps
+Group=sgps
+WorkingDirectory=/var/www/sgps
+EnvironmentFile=/var/www/sgps/.env
+Environment="PATH=/var/www/sgps/.venv/bin"
+ExecStart=/var/www/sgps/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8071 --workers 3 --timeout 120 --access-logfile - --error-logfile -
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=30
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

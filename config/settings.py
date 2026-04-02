@@ -10,28 +10,54 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+env = environ.Env()
+ENV_FILE = BASE_DIR / '.env'
+if ENV_FILE.exists():
+    environ.Env.read_env(ENV_FILE)
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
+def env_bool(name, default=False):
+    return os.getenv(name, str(default)).lower() in {'1', 'true', 'yes', 'on'}
+
+
+def env_list(name, default=''):
+    value = os.getenv(name, default)
+    return [item.strip() for item in value.split(',') if item.strip()]
+
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-9u1%%af9dsf6a@12$0c+-_%o_te4j97pjvbmhsmy2l2xt3&+=2'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-9u1%%af9dsf6a@12$0c+-_%o_te4j97pjvbmhsmy2l2xt3&+=2')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env_bool('DJANGO_DEBUG', True)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost')
+CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS', '')
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+SESSION_COOKIE_SECURE = env_bool('DJANGO_SESSION_COOKIE_SECURE', not DEBUG)
+CSRF_COOKIE_SECURE = env_bool('DJANGO_CSRF_COOKIE_SECURE', not DEBUG)
+SECURE_SSL_REDIRECT = env_bool('DJANGO_SECURE_SSL_REDIRECT', not DEBUG)
+SECURE_HSTS_SECONDS = int(os.getenv('DJANGO_SECURE_HSTS_SECONDS', '0' if DEBUG else '31536000'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool('DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS', not DEBUG)
+SECURE_HSTS_PRELOAD = env_bool('DJANGO_SECURE_HSTS_PRELOAD', not DEBUG)
 
 
 # Application definition
 
 # Security
-FIELD_ENCRYPTION_KEY = "tv25H_VMhZdlmABbz7pnncprSwdwQ4CXw2H1mlGEiPQ="
+FIELD_ENCRYPTION_KEY = os.getenv('DJANGO_FIELD_ENCRYPTION_KEY', "tv25H_VMhZdlmABbz7pnncprSwdwQ4CXw2H1mlGEiPQ=")
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -79,12 +105,25 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+db_engine = os.getenv('DB_ENGINE', 'django.db.backends.sqlite3')
+db_name_default = str(BASE_DIR / 'db.sqlite3') if db_engine == 'django.db.backends.sqlite3' else 'sgps'
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': db_engine,
+        'NAME': os.getenv('DB_NAME', db_name_default),
     }
 }
+
+if db_engine != 'django.db.backends.sqlite3':
+    DATABASES['default'].update(
+        {
+            'USER': os.getenv('DB_USER', 'sgps'),
+            'PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+        }
+    )
 
 
 # Password validation

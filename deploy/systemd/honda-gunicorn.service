@@ -1,0 +1,15 @@
+[Unit]
+Description=Honda Django Gunicorn
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/honda
+EnvironmentFile=/var/www/honda/.env
+ExecStart=/var/www/honda/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8002 --workers 3 --timeout 120
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
