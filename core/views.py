@@ -1,4 +1,5 @@
-from functools import wraps
+﻿from functools import wraps
+from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -6,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import render, get_object_or_404, redirect
+from django.utils import timezone
 
 from .models import Pessoa, Ativo, Familia, FamiliaAcesso, Holding, ParticipacaoHolding, AnexoImagem, Imovel, Veiculo, Empresa, Investimento
 from .forms import FamiliaForm, HoldingForm, ParticipacaoForm, PessoaForm, AnexoImagemForm, ImovelForm, VeiculoForm, EmpresaForm, InvestimentoForm, FamilyAccessCreateForm, FamilyAccessUpdateForm
@@ -41,7 +43,7 @@ def _require_family_access(user, familia):
 
     access = getattr(user, 'familia_access', None)
     if not access or access.familia_id != familia.id:
-        raise PermissionDenied("VocÃª nÃ£o tem acesso a esta famÃ­lia.")
+        raise PermissionDenied("VocÃƒÂª nÃƒÂ£o tem acesso a esta famÃƒÂ­lia.")
 
 
 def _require_management_access(user):
@@ -86,6 +88,43 @@ def _get_family_user_or_404(user_id):
         User.objects.filter(is_staff=False, is_superuser=False),
         pk=user_id,
     )
+
+
+def _deadline_status(due_date, warning_window=30):
+    if not due_date:
+        return {
+            'label': 'Nao mapeado',
+            'tone': 'alert',
+            'days': None,
+        }
+
+    today = timezone.localdate()
+    days = (due_date - today).days
+
+    if days < 0:
+        return {
+            'label': f'{abs(days)} dia(s) em atraso',
+            'tone': 'alert',
+            'days': days,
+        }
+    if days == 0:
+        return {
+            'label': 'Vence hoje',
+            'tone': 'warm',
+            'days': days,
+        }
+    if days <= warning_window:
+        return {
+            'label': f'Vence em {days} dia(s)',
+            'tone': 'warm',
+            'days': days,
+        }
+
+    return {
+        'label': f'Vence em {days} dia(s)',
+        'tone': 'soft',
+        'days': days,
+    }
 
 
 def _person_sort_key(person):
@@ -247,7 +286,7 @@ def familia_create(request):
             return redirect('familia_detail', familia_id=familia.id)
     else:
         form = FamiliaForm()
-    return render(request, 'crud/familia_form.html', {'form': form, 'title': 'Nova Família'})
+    return render(request, 'crud/familia_form.html', {'form': form, 'title': 'Nova FamÃ­lia'})
 
 @management_required
 def familia_edit(request, familia_id):
@@ -472,14 +511,14 @@ def ativo_edit(request, ativo_id):
 @login_required
 def simular_inventario_view(request, pessoa_id):
     """
-    Simula inventário considerando:
+    Simula inventÃ¡rio considerando:
     - Ativos diretos da pessoa
-    - Ativos indiretos via Holdings (baseado no % de participação)
+    - Ativos indiretos via Holdings (baseado no % de participaÃ§Ã£o)
     """
     pessoa = get_object_or_404(Pessoa, id=pessoa_id)
     _require_family_access(request.user, pessoa.familia)
     
-    # Ativos diretos (proprietário = pessoa)
+    # Ativos diretos (proprietÃ¡rio = pessoa)
     ativos_diretos = Ativo.objects.filter(
         content_type__model='pessoa',
         object_id=pessoa.id
@@ -523,7 +562,7 @@ def simular_inventario_view(request, pessoa_id):
     
     resultado['itcmd_estimado'] = resultado['heranca_total'] * Decimal('0.04')
     
-    # Adiciona detalhamento de ativos indiretos para exibição
+    # Adiciona detalhamento de ativos indiretos para exibiÃ§Ã£o
     resultado['ativos_indiretos'] = {
         'comuns': comuns_indiretos,
         'particulares': particulares_indiretos,
@@ -575,117 +614,200 @@ def familia_detail(request, familia_id):
 
 @login_required
 def familia_dashboard(request, familia_id):
-    """Dashboard visual com estatísticas e resumos da família"""
-    from django.db.models import Sum, Count, Q
+    """Dashboard visual com estatisticas, obrigacoes e mapa da familia"""
+    from django.db.models import Sum
     from collections import defaultdict
-    
+
     familia = get_object_or_404(Familia, id=familia_id)
     _require_family_access(request.user, familia)
-    
-    # Estatísticas gerais
+
     stats = {
         'total_membros': familia.membros.count(),
         'total_holdings': familia.holdings.count(),
     }
-    
-    # Ativos por tipo (diretos das pessoas)
+
     ativos_pessoas = Ativo.objects.filter(
         content_type__model='pessoa',
         object_id__in=familia.membros.values_list('id', flat=True)
     )
-    
-    # Ativos por tipo (via holdings)
     ativos_holdings = Ativo.objects.filter(
         content_type__model='holding',
         object_id__in=familia.holdings.values_list('id', flat=True)
     )
-    
-    # Valores por tipo
-    imoveis = Imovel.objects.filter(id__in=ativos_pessoas.values_list('id', flat=True)) | \
-              Imovel.objects.filter(id__in=ativos_holdings.values_list('id', flat=True))
-    veiculos = Veiculo.objects.filter(id__in=ativos_pessoas.values_list('id', flat=True)) | \
-               Veiculo.objects.filter(id__in=ativos_holdings.values_list('id', flat=True))
-    empresas = Empresa.objects.filter(id__in=ativos_pessoas.values_list('id', flat=True)) | \
-               Empresa.objects.filter(id__in=ativos_holdings.values_list('id', flat=True))
-    investimentos = Investimento.objects.filter(id__in=ativos_pessoas.values_list('id', flat=True)) | \
-                    Investimento.objects.filter(id__in=ativos_holdings.values_list('id', flat=True))
-    
-    stats['imoveis_count'] = imoveis.count()
+
+    imoveis = list((
+        Imovel.objects.filter(id__in=ativos_pessoas.values_list('id', flat=True)) |
+        Imovel.objects.filter(id__in=ativos_holdings.values_list('id', flat=True))
+    ).order_by('descricao'))
+    veiculos = Veiculo.objects.filter(id__in=ativos_pessoas.values_list('id', flat=True)) |                Veiculo.objects.filter(id__in=ativos_holdings.values_list('id', flat=True))
+    empresas = Empresa.objects.filter(id__in=ativos_pessoas.values_list('id', flat=True)) |                Empresa.objects.filter(id__in=ativos_holdings.values_list('id', flat=True))
+    investimentos = Investimento.objects.filter(id__in=ativos_pessoas.values_list('id', flat=True)) |                     Investimento.objects.filter(id__in=ativos_holdings.values_list('id', flat=True))
+
+    stats['imoveis_count'] = len(imoveis)
     stats['veiculos_count'] = veiculos.count()
     stats['empresas_count'] = empresas.count()
     stats['investimentos_count'] = investimentos.count()
-    
-    stats['imoveis_valor'] = imoveis.aggregate(Sum('valor_mercado_atual'))['valor_mercado_atual__sum'] or Decimal('0')
+
+    stats['imoveis_valor'] = sum((imovel.valor_mercado_atual for imovel in imoveis), Decimal('0'))
     stats['veiculos_valor'] = veiculos.aggregate(Sum('valor_mercado_atual'))['valor_mercado_atual__sum'] or Decimal('0')
     stats['empresas_valor'] = empresas.aggregate(Sum('valor_mercado_atual'))['valor_mercado_atual__sum'] or Decimal('0')
     stats['investimentos_valor'] = investimentos.aggregate(Sum('valor_mercado_atual'))['valor_mercado_atual__sum'] or Decimal('0')
-    
+
     stats['patrimonio_total'] = stats['imoveis_valor'] + stats['veiculos_valor'] + stats['empresas_valor'] + stats['investimentos_valor']
     asset_mix = [
-        {
-            'label': 'Imóveis',
-            'count': stats['imoveis_count'],
-            'value': stats['imoveis_valor'],
-            'tone': 'warm',
-        },
-        {
-            'label': 'Veículos',
-            'count': stats['veiculos_count'],
-            'value': stats['veiculos_valor'],
-            'tone': 'ink',
-        },
-        {
-            'label': 'Empresas',
-            'count': stats['empresas_count'],
-            'value': stats['empresas_valor'],
-            'tone': 'soft',
-        },
-        {
-            'label': 'Investimentos',
-            'count': stats['investimentos_count'],
-            'value': stats['investimentos_valor'],
-            'tone': 'soft',
-        },
+        {'label': 'Imoveis', 'count': stats['imoveis_count'], 'value': stats['imoveis_valor'], 'tone': 'warm'},
+        {'label': 'Veiculos', 'count': stats['veiculos_count'], 'value': stats['veiculos_valor'], 'tone': 'ink'},
+        {'label': 'Empresas', 'count': stats['empresas_count'], 'value': stats['empresas_valor'], 'tone': 'soft'},
+        {'label': 'Investimentos', 'count': stats['investimentos_count'], 'value': stats['investimentos_valor'], 'tone': 'soft'},
     ]
     for item in asset_mix:
         if stats['patrimonio_total'] > 0:
             item['share'] = ((item['value'] / stats['patrimonio_total']) * Decimal('100')).quantize(Decimal('0.1'))
         else:
             item['share'] = Decimal('0.0')
-    
-    # Distribuição geográfica dos imóveis
+
     distribuicao_geo = defaultdict(int)
     for imovel in imoveis:
         if imovel.endereco:
             distribuicao_geo[imovel.endereco.uf] += 1
-    
-    # Imóveis com coordenadas para mapa
+
+    imovel_content_type = ContentType.objects.get_for_model(Imovel)
+    anexos_imoveis = AnexoImagem.objects.filter(
+        content_type=imovel_content_type,
+        object_id__in=[imovel.id for imovel in imoveis],
+    ).order_by('created_at')
+    anexos_por_imovel = defaultdict(list)
+    for anexo in anexos_imoveis:
+        anexos_por_imovel[anexo.object_id].append(anexo)
+
+    imoveis_portfolio = []
     imoveis_mapa = []
+
     for imovel in imoveis:
         endereco = imovel.endereco
-        if not endereco or endereco.latitude is None or endereco.longitude is None:
+        anexos = anexos_por_imovel.get(imovel.id, [])
+        thumbnail_url = anexos[0].imagem.url if anexos else None
+        iptu_status = _deadline_status(imovel.iptu_vencimento)
+
+        item = {
+            'id': imovel.id,
+            'descricao': imovel.descricao,
+            'endereco': str(endereco) if endereco else 'Endereco nao estruturado',
+            'uf': endereco.uf if endereco else '--',
+            'valor': imovel.valor_mercado_atual,
+            'thumbnail_url': thumbnail_url,
+            'image_count': len(anexos),
+            'iptu_index': imovel.iptu_index,
+            'iptu_valor_anual': imovel.iptu_valor_anual,
+            'iptu_vencimento': imovel.iptu_vencimento,
+            'iptu_status': iptu_status,
+            'has_coordinates': bool(endereco and endereco.latitude is not None and endereco.longitude is not None),
+        }
+        imoveis_portfolio.append(item)
+
+        if not item['has_coordinates']:
             continue
 
         imoveis_mapa.append({
+            'id': str(imovel.id),
             'descricao': imovel.descricao,
             'endereco': str(endereco),
             'uf': endereco.uf,
             'lat': float(endereco.latitude),
             'lng': float(endereco.longitude),
             'valor': float(imovel.valor_mercado_atual),
+            'thumbnail_url': thumbnail_url,
         })
 
     stats['imoveis_georreferenciados'] = len(imoveis_mapa)
     stats['imoveis_sem_coordenadas'] = max(stats['imoveis_count'] - stats['imoveis_georreferenciados'], 0)
-    
+
+    imoveis_sem_imagem = sum(1 for item in imoveis_portfolio if item['image_count'] == 0)
+    iptu_mapeado = sum(1 for item in imoveis_portfolio if item['iptu_vencimento'])
+    iptu_sem_calendario = sum(1 for item in imoveis_portfolio if not item['iptu_vencimento'])
+
+    inventario_status = _deadline_status(familia.inventario_prazo_final, warning_window=45)
+    itcmd_status = _deadline_status(familia.itcmd_vencimento, warning_window=30)
+
+    iptu_por_imovel = sorted(
+        imoveis_portfolio,
+        key=lambda item: (
+            item['iptu_vencimento'] is None,
+            item['iptu_vencimento'] or date.max,
+            item['descricao'].lower(),
+        ),
+    )
+
+    alertas_operacionais = []
+    if stats['imoveis_sem_coordenadas']:
+        alertas_operacionais.append({
+            'tone': 'warm',
+            'title': 'Geocodificacao pendente',
+            'copy': f"{stats['imoveis_sem_coordenadas']} imovel(is) ainda sem coordenadas para o mapa.",
+        })
+    if imoveis_sem_imagem:
+        alertas_operacionais.append({
+            'tone': 'warm',
+            'title': 'Galeria incompleta',
+            'copy': f'{imoveis_sem_imagem} imovel(is) ainda sem imagem cadastrada.',
+        })
+    if iptu_sem_calendario:
+        alertas_operacionais.append({
+            'tone': 'alert',
+            'title': 'IPTU sem agenda',
+            'copy': f'{iptu_sem_calendario} imovel(is) sem vencimento de IPTU mapeado.',
+        })
+    if inventario_status['tone'] == 'alert' and familia.inventario_prazo_final:
+        alertas_operacionais.append({
+            'tone': 'alert',
+            'title': 'Inventario em atraso',
+            'copy': f"Prazo final vencido em {familia.inventario_prazo_final.strftime('%d/%m/%Y')}",
+        })
+    if itcmd_status['tone'] == 'alert' and familia.itcmd_vencimento:
+        alertas_operacionais.append({
+            'tone': 'alert',
+            'title': 'ITCMD vencido',
+            'copy': f"Calendario vencido em {familia.itcmd_vencimento.strftime('%d/%m/%Y')}",
+        })
+    if not alertas_operacionais:
+        alertas_operacionais.append({
+            'tone': 'soft',
+            'title': 'Base operacional estabilizada',
+            'copy': 'Sem pendencias criticas abertas no momento.',
+        })
+
+    obrigacoes_resumo = {
+        'iptu': {
+            'metric': f"{iptu_mapeado}/{stats['imoveis_count']}",
+            'copy': 'Imoveis com vencimento de IPTU mapeado.',
+            'complete': iptu_mapeado == stats['imoveis_count'] and stats['imoveis_count'] > 0,
+        },
+        'inventario': {
+            'date': familia.inventario_prazo_final,
+            'status': inventario_status,
+        },
+        'itcmd': {
+            'date': familia.itcmd_vencimento,
+            'uf': familia.itcmd_uf,
+            'status': itcmd_status,
+        },
+        'alertas': {
+            'count': len(alertas_operacionais),
+            'items': alertas_operacionais,
+        },
+    }
+
     context = {
         'familia': familia,
         'stats': stats,
         'asset_mix': asset_mix,
-        'distribuicao_geo': dict(distribuicao_geo),
+        'distribicao_geo': dict(distribuicao_geo),
         'imoveis_mapa': imoveis_mapa,
+        'imoveis_portfolio': imoveis_portfolio,
+        'iptu_por_imovel': iptu_por_imovel,
+        'obrigacoes_resumo': obrigacoes_resumo,
     }
-    
+
     return render(request, 'dashboard.html', context)
 
 
@@ -775,5 +897,6 @@ def anexo_listar(request, model_name, object_id):
         'model_name': model_name,
         'object_id': object_id,
     })
+
 
 

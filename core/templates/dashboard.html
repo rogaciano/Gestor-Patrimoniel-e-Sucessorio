@@ -167,6 +167,9 @@
         </p>
         <div class="mt-8 flex flex-wrap gap-3">
             <a href="{% url 'familia_detail' familia.id %}" class="btn-secondary">Voltar para a Familia</a>
+            {% if request.user.is_staff or request.user.is_superuser %}
+            <a href="{% url 'familia_edit' familia.id %}" class="btn-ghost">Editar prazos da familia</a>
+            {% endif %}
             <span class="stat-pill">Patrimonio bruto R$ {{ stats.patrimonio_total|intcomma }}</span>
         </div>
     </div>
@@ -289,50 +292,212 @@
     </div>
 
     <div class="glass-panel rounded-[32px] p-6 sm:p-8">
-        <p class="section-kicker">Cobertura</p>
-        <h2 class="mini-title mt-3">Imoveis georreferenciados</h2>
+        <p class="section-kicker">Roadmap Fiscal</p>
+        <h2 class="mini-title mt-3">Obrigacoes mapeadas para a proxima fase</h2>
 
-        {% if imoveis_mapa %}
-        <div class="mt-8 space-y-3">
-            {% for item in imoveis_mapa %}
-            <div class="stat-card p-4">
-                <div class="flex items-start justify-between gap-3">
+        <div class="mt-8 grid gap-4">
+            <div class="stat-card p-5">
+                <div class="flex items-start justify-between gap-4">
                     <div>
-                        <p class="text-base font-semibold text-slate-900">{{ item.descricao }}</p>
-                        <p class="mt-2 text-sm leading-6 text-slate-600">{{ item.endereco }}</p>
+                        <p class="stat-label">IPTU por imovel</p>
+                        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{{ obrigacoes_resumo.iptu.metric }}</p>
                     </div>
-                    <span class="data-chip data-chip-soft">{{ item.uf }}</span>
+                    <span class="data-chip {% if obrigacoes_resumo.iptu.complete %}data-chip-soft{% else %}data-chip-warm{% endif %}">Cobertura fiscal</span>
                 </div>
-                <div class="surface-divider mt-4 flex flex-wrap items-center justify-between gap-3 pt-4">
-                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        Lat {{ item.lat }} | Lng {{ item.lng }}
-                    </p>
-                    <span class="text-sm font-semibold text-teal-700">R$ {{ item.valor|floatformat:2|intcomma }}</span>
+                <p class="mt-3 text-sm leading-7 text-slate-600">{{ obrigacoes_resumo.iptu.copy }}</p>
+                {% if iptu_por_imovel %}
+                <div class="surface-divider mt-5 space-y-3 pt-4">
+                    {% for item in iptu_por_imovel|slice:":4" %}
+                    <div class="flex items-start justify-between gap-3 text-sm">
+                        <div>
+                            <p class="font-semibold text-slate-900">{{ item.descricao }}</p>
+                            <p class="mt-1 text-slate-500">
+                                {% if item.iptu_vencimento %}
+                                {{ item.iptu_vencimento|date:"d/m/Y" }}
+                                {% else %}
+                                Vencimento nao informado
+                                {% endif %}
+                            </p>
+                        </div>
+                        <span class="data-chip {% if item.iptu_status.tone == 'alert' %}data-chip-alert{% elif item.iptu_status.tone == 'warm' %}data-chip-warm{% else %}data-chip-soft{% endif %}">
+                            {{ item.iptu_status.label }}
+                        </span>
+                    </div>
+                    {% endfor %}
                 </div>
+                {% endif %}
             </div>
-            {% endfor %}
-        </div>
-        <p class="mt-5 text-sm leading-7 text-slate-600">
-            {{ stats.imoveis_georreferenciados }} imovel(is) ja estao com coordenadas validas e navegacao espacial pronta.
-        </p>
-        {% else %}
-        <div class="empty-state mt-8 rounded-[28px] p-8 text-center">
-            <p class="text-sm text-slate-600">Sem coordenadas disponiveis no momento.</p>
-        </div>
-        {% endif %}
 
-        <div class="surface-divider mt-8 pt-6">
-            <p class="section-kicker">Roadmap Fiscal</p>
-            <div class="mt-4 space-y-3">
-                <div class="stat-card p-4">
-                    <p class="font-semibold text-slate-900">Obrigacoes mapeadas para a proxima fase</p>
-                    <p class="mt-2 text-sm leading-7 text-slate-600">
-                        IPTU por imovel, prazos de inventario, calendario de ITCMD e alertas operacionais.
-                    </p>
+            <div class="stat-card p-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <p class="stat-label">Prazo de inventario</p>
+                        <p class="mt-3 text-xl font-semibold tracking-tight text-slate-900">
+                            {% if obrigacoes_resumo.inventario.date %}
+                            {{ obrigacoes_resumo.inventario.date|date:"d/m/Y" }}
+                            {% else %}
+                            Nao mapeado
+                            {% endif %}
+                        </p>
+                    </div>
+                    <span class="data-chip {% if obrigacoes_resumo.inventario.status.tone == 'alert' %}data-chip-alert{% elif obrigacoes_resumo.inventario.status.tone == 'warm' %}data-chip-warm{% else %}data-chip-soft{% endif %}">
+                        {{ obrigacoes_resumo.inventario.status.label }}
+                    </span>
+                </div>
+                <p class="mt-3 text-sm leading-7 text-slate-600">
+                    Controle central do prazo juridico da familia para evitar atraso na trilha sucessoria.
+                </p>
+            </div>
+
+            <div class="stat-card p-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <p class="stat-label">Calendario de ITCMD</p>
+                        <p class="mt-3 text-xl font-semibold tracking-tight text-slate-900">
+                            {% if obrigacoes_resumo.itcmd.date %}
+                            {{ obrigacoes_resumo.itcmd.date|date:"d/m/Y" }}
+                            {% else %}
+                            Nao mapeado
+                            {% endif %}
+                        </p>
+                    </div>
+                    <span class="data-chip {% if obrigacoes_resumo.itcmd.status.tone == 'alert' %}data-chip-alert{% elif obrigacoes_resumo.itcmd.status.tone == 'warm' %}data-chip-warm{% else %}data-chip-soft{% endif %}">
+                        {{ obrigacoes_resumo.itcmd.status.label }}
+                    </span>
+                </div>
+                <p class="mt-3 text-sm leading-7 text-slate-600">
+                    {% if obrigacoes_resumo.itcmd.uf %}
+                    Referencia fiscal concentrada em {{ obrigacoes_resumo.itcmd.uf }}.
+                    {% else %}
+                    Defina a UF e a data para acompanhar o calendario tributario da familia.
+                    {% endif %}
+                </p>
+            </div>
+
+            <div class="stat-card p-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <p class="stat-label">Alertas operacionais</p>
+                        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{{ obrigacoes_resumo.alertas.count }}</p>
+                    </div>
+                    <span class="data-chip {% if obrigacoes_resumo.alertas.count > 1 %}data-chip-warm{% else %}data-chip-soft{% endif %}">Monitoramento</span>
+                </div>
+                <div class="surface-divider mt-5 space-y-3 pt-4">
+                    {% for alerta in obrigacoes_resumo.alertas.items %}
+                    <div>
+                        <p class="font-semibold text-slate-900">{{ alerta.title }}</p>
+                        <p class="mt-1 text-sm leading-7 text-slate-600">{{ alerta.copy }}</p>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
         </div>
     </div>
+</section>
+
+<section class="glass-panel mt-8 rounded-[32px] p-6 sm:p-8">
+    <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+            <p class="section-kicker">Portfolio Imobiliario</p>
+            <h2 class="mini-title mt-3">Imoveis, imagens e agenda tributaria</h2>
+            <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+                Cada card reune imagem principal, endereco, referencia de IPTU e atalhos para anexar novas fotos do imovel.
+            </p>
+        </div>
+        <span class="stat-pill">{{ stats.imoveis_count }} imovel(is) rastreados</span>
+    </div>
+
+    {% if imoveis_portfolio %}
+    <div class="mt-8 grid gap-4 xl:grid-cols-2">
+        {% for item in imoveis_portfolio %}
+        <article class="stat-card overflow-hidden">
+            <div class="grid gap-0 lg:grid-cols-[0.92fr,1.08fr]">
+                <div class="relative min-h-[15rem] bg-[linear-gradient(135deg,rgba(15,118,110,0.16),rgba(20,35,45,0.08))]">
+                    {% if item.thumbnail_url %}
+                    <img src="{{ item.thumbnail_url }}" alt="{{ item.descricao }}" class="h-full w-full object-cover">
+                    {% else %}
+                    <div class="flex h-full items-center justify-center px-8 text-center">
+                        <div>
+                            <span class="avatar-ring">IM</span>
+                            <p class="mt-4 text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Sem imagem principal</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="absolute left-4 top-4 flex flex-wrap gap-2">
+                        <span class="data-chip data-chip-soft">{{ item.image_count }} imagem(ns)</span>
+                        {% if item.has_coordinates %}
+                        <span class="data-chip data-chip-soft">No mapa</span>
+                        {% else %}
+                        <span class="data-chip data-chip-warm">Sem coordenada</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="p-5 sm:p-6">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-xl font-semibold tracking-tight text-slate-900">{{ item.descricao }}</p>
+                            <p class="mt-2 text-sm leading-7 text-slate-600">{{ item.endereco }}</p>
+                        </div>
+                        <span class="data-chip data-chip-soft">{{ item.uf }}</span>
+                    </div>
+
+                    <div class="surface-divider mt-5 grid gap-4 pt-5 sm:grid-cols-2">
+                        <div>
+                            <p class="stat-label">Valor de mercado</p>
+                            <p class="mt-2 text-lg font-semibold text-slate-900">R$ {{ item.valor|intcomma }}</p>
+                        </div>
+                        <div>
+                            <p class="stat-label">IPTU</p>
+                            <p class="mt-2 text-lg font-semibold text-slate-900">
+                                {% if item.iptu_valor_anual %}
+                                R$ {{ item.iptu_valor_anual|intcomma }}
+                                {% else %}
+                                Nao informado
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="stat-label">Vencimento</p>
+                            <p class="mt-2 text-sm font-semibold text-slate-900">
+                                {% if item.iptu_vencimento %}
+                                {{ item.iptu_vencimento|date:"d/m/Y" }}
+                                {% else %}
+                                Nao informado
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="stat-label">Inscricao</p>
+                            <p class="mt-2 text-sm font-semibold text-slate-900">{{ item.iptu_index|default:"Nao informada" }}</p>
+                        </div>
+                        <div>
+                            <p class="stat-label">Status</p>
+                            <div class="mt-2">
+                                <span class="data-chip {% if item.iptu_status.tone == 'alert' %}data-chip-alert{% elif item.iptu_status.tone == 'warm' %}data-chip-warm{% else %}data-chip-soft{% endif %}">
+                                    {{ item.iptu_status.label }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="surface-divider mt-5 flex flex-wrap gap-3 pt-5">
+                        <a href="{% url 'anexo_listar' 'imovel' item.id %}" class="btn-secondary">Ver imagens</a>
+                        {% if request.user.is_staff or request.user.is_superuser %}
+                        <a href="{% url 'anexo_adicionar' 'imovel' item.id %}" class="btn-primary">Adicionar imagem</a>
+                        <a href="{% url 'ativo_edit' item.id %}" class="btn-ghost">Editar imovel</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state mt-8 rounded-[28px] p-8 text-center">
+        <p class="text-sm text-slate-600">Ainda nao ha imoveis cadastrados para esta familia.</p>
+    </div>
+    {% endif %}
 </section>
 {% endblock %}
 
@@ -390,6 +555,7 @@
             const popup = [
                 '<div class="wealth-map-popup">',
                 '<p class="wealth-map-popup-title">' + escapeHtml(item.descricao) + '</p>',
+                item.thumbnail_url ? '<img src=\"' + escapeHtml(item.thumbnail_url) + '\" alt=\"' + escapeHtml(item.descricao) + '\" style=\"margin-top:0.75rem;border-radius:14px;width:100%;height:9rem;object-fit:cover;\">' : '',
                 '<p class="wealth-map-popup-copy">' + escapeHtml(item.endereco) + '</p>',
                 '<p class="wealth-map-popup-metric">' + currencyFormatter.format(item.valor || 0) + '</p>',
                 '</div>'

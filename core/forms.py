@@ -1,4 +1,4 @@
-from django import forms
+﻿from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -6,7 +6,7 @@ from django.db import transaction
 
 from .models import Familia, Pessoa, Holding, ParticipacaoHolding, Endereco, AnexoImagem, Imovel, Veiculo, Empresa, Investimento, FamiliaAcesso
 
-# --- Mixin para Estilização Tailwind ---
+# --- Mixin para EstilizaÃ§Ã£o Tailwind ---
 class TailwindFormMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -24,7 +24,20 @@ User = get_user_model()
 class FamiliaForm(TailwindFormMixin, forms.ModelForm):
     class Meta:
         model = Familia
-        fields = ['nome']
+        fields = ['nome', 'inventario_prazo_final', 'itcmd_vencimento', 'itcmd_uf']
+        widgets = {
+            'inventario_prazo_final': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date'}),
+            'itcmd_vencimento': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date'}),
+        }
+        labels = {
+            'inventario_prazo_final': 'Prazo final do inventario',
+            'itcmd_vencimento': 'Proximo vencimento do ITCMD',
+            'itcmd_uf': 'UF de referencia do ITCMD',
+        }
+        help_texts = {
+            'inventario_prazo_final': 'Use para destacar a urgencia do processo no dashboard da familia.',
+            'itcmd_vencimento': 'Data mais relevante para recolhimento ou conferencia do ITCMD.',
+        }
 
 class HoldingForm(TailwindFormMixin, forms.ModelForm):
     class Meta:
@@ -34,10 +47,10 @@ class HoldingForm(TailwindFormMixin, forms.ModelForm):
             'data_constituicao': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date'}),
         }
         labels = {
-            'razao_social': 'Razão Social',
+            'razao_social': 'RazÃ£o Social',
             'cnpj': 'CNPJ',
-            'tipo_societario': 'Tipo Societário',
-            'data_constituicao': 'Data de Constituição',
+            'tipo_societario': 'Tipo SocietÃ¡rio',
+            'data_constituicao': 'Data de ConstituiÃ§Ã£o',
         }
 
 class ParticipacaoForm(TailwindFormMixin, forms.ModelForm):
@@ -45,13 +58,13 @@ class ParticipacaoForm(TailwindFormMixin, forms.ModelForm):
         model = ParticipacaoHolding
         fields = ['pessoa', 'percentual', 'tipo_quota']
         labels = {
-            'pessoa': 'Sócio',
-            'percentual': 'Percentual de Participação (%)',
+            'pessoa': 'SÃ³cio',
+            'percentual': 'Percentual de ParticipaÃ§Ã£o (%)',
             'tipo_quota': 'Tipo de Quota',
         }
         help_texts = {
             'percentual': 'Ex: 50.00 para 50%',
-            'tipo_quota': 'ORD (Ordinária): Com direito a voto. PREF (Preferencial): Prioridade em dividendos, sem voto. Use Ordinária em 99% dos casos.',
+            'tipo_quota': 'ORD (OrdinÃ¡ria): Com direito a voto. PREF (Preferencial): Prioridade em dividendos, sem voto. Use OrdinÃ¡ria em 99% dos casos.',
         }
     
     def __init__(self, *args, **kwargs):
@@ -73,8 +86,8 @@ class PessoaForm(TailwindFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         familia_id = kwargs.pop('familia_id', None)
         super().__init__(*args, **kwargs)
-        # Se estiver criando dentro de uma família, filtrar opções de parentesco se necessário?
-        # Por enquanto, deixamos aberto para selecionar qualquer pessoa do sistema ou idealmente da mesma família.
+        # Se estiver criando dentro de uma famÃ­lia, filtrar opÃ§Ãµes de parentesco se necessÃ¡rio?
+        # Por enquanto, deixamos aberto para selecionar qualquer pessoa do sistema ou idealmente da mesma famÃ­lia.
         if familia_id:
             # Filter foreign keys to only show members of the same family to avoid cross-family confusion
             self.fields['pai'].queryset = Pessoa.objects.filter(familia_id=familia_id)
@@ -82,10 +95,10 @@ class PessoaForm(TailwindFormMixin, forms.ModelForm):
             self.fields['conjuge'].queryset = Pessoa.objects.filter(familia_id=familia_id)
 
 class ImovelForm(TailwindFormMixin, forms.ModelForm):
-    # Campos de endereço inline
+    # Campos de endereÃ§o inline
     cep = forms.CharField(max_length=9, label='CEP', widget=forms.TextInput(attrs={'placeholder': '00000-000'}))
     logradouro = forms.CharField(max_length=255, label='Logradouro')
-    numero = forms.CharField(max_length=10, label='Número')
+    numero = forms.CharField(max_length=10, label='NÃºmero')
     complemento = forms.CharField(max_length=100, required=False, label='Complemento')
     bairro = forms.CharField(max_length=100, label='Bairro')
     cidade = forms.CharField(max_length=100, label='Cidade')
@@ -93,21 +106,39 @@ class ImovelForm(TailwindFormMixin, forms.ModelForm):
     
     class Meta:
         model = Imovel
-        fields = ['descricao', 'valor_aquisicao', 'valor_mercado_atual', 'natureza_bem', 'matricula']
+        fields = [
+            'descricao',
+            'valor_aquisicao',
+            'valor_mercado_atual',
+            'natureza_bem',
+            'matricula',
+            'iptu_index',
+            'iptu_valor_anual',
+            'iptu_vencimento',
+        ]
         labels = {
-            'descricao': 'Descrição do Imóvel',
-            'valor_aquisicao': 'Valor de Aquisição (R$)',
+            'descricao': 'Descricao do Imovel',
+            'valor_aquisicao': 'Valor de Aquisicao (R$)',
             'valor_mercado_atual': 'Valor de Mercado Atual (R$)',
             'natureza_bem': 'Natureza do Bem',
-            'matricula': 'Matrícula do Imóvel',
+            'matricula': 'Matricula do Imovel',
+            'iptu_index': 'Inscricao do IPTU',
+            'iptu_valor_anual': 'Valor anual do IPTU (R$)',
+            'iptu_vencimento': 'Proximo vencimento do IPTU',
         }
         help_texts = {
             'valor_mercado_atual': 'Valor estimado de venda hoje (usado na partilha)',
+            'iptu_index': 'Codigo de referencia do cadastro municipal.',
+            'iptu_valor_anual': 'Valor esperado para a obrigacao tributaria anual deste imovel.',
+            'iptu_vencimento': 'Data usada para alertas operacionais e agenda fiscal.',
+        }
+        widgets = {
+            'iptu_vencimento': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date'}),
         }
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Se editando, preenche campos de endereço
+        # Se editando, preenche campos de endereÃ§o
         if self.instance.pk and self.instance.endereco:
             self.fields['cep'].initial = self.instance.endereco.cep
             self.fields['logradouro'].initial = self.instance.endereco.logradouro
@@ -120,7 +151,7 @@ class ImovelForm(TailwindFormMixin, forms.ModelForm):
     def save(self, commit=True):
         imovel = super().save(commit=False)
         
-        # Cria ou atualiza endereço
+        # Cria ou atualiza endereÃ§o
         if imovel.endereco:
             endereco = imovel.endereco
         else:
@@ -147,13 +178,13 @@ class VeiculoForm(TailwindFormMixin, forms.ModelForm):
         model = Veiculo
         fields = ['descricao', 'tipo', 'marca', 'modelo', 'ano_fabricacao', 'ano_modelo', 'placa', 'renavam_enc', 'valor_mercado_atual', 'natureza_bem', 'codigo_fipe']
         labels = {
-            'descricao': 'Descrição/Apelido',
+            'descricao': 'DescriÃ§Ã£o/Apelido',
             'valor_mercado_atual': 'Valor de Mercado (FIPE)',
             'renavam_enc': 'Renavam',
             'natureza_bem': 'Natureza do Bem',
         }
         widgets = {
-            'tipo': forms.Select(choices=[('carros', 'Carros'), ('motos', 'Motos'), ('caminhoes', 'Caminhões')]),
+            'tipo': forms.Select(choices=[('carros', 'Carros'), ('motos', 'Motos'), ('caminhoes', 'CaminhÃµes')]),
             'marca': forms.Select(attrs={'class': 'form-select block w-full mt-1'}),
             'modelo': forms.Select(attrs={'class': 'form-select block w-full mt-1'}),
             'ano_modelo': forms.Select(attrs={'class': 'form-select block w-full mt-1'}),
@@ -161,7 +192,7 @@ class VeiculoForm(TailwindFormMixin, forms.ModelForm):
         }
 
         help_texts = {
-            'valor_mercado_atual': 'Consulte a Tabela FIPE para precisão',
+            'valor_mercado_atual': 'Consulte a Tabela FIPE para precisÃ£o',
         }
 
 class EmpresaForm(TailwindFormMixin, forms.ModelForm):
@@ -169,14 +200,14 @@ class EmpresaForm(TailwindFormMixin, forms.ModelForm):
         model = Empresa
         fields = ['descricao', 'valor_aquisicao', 'valor_mercado_atual', 'natureza_bem', 'cnpj_enc', 'razao_social', 'percentual_participacao']
         labels = {
-            'descricao': 'Descrição da Participação',
+            'descricao': 'DescriÃ§Ã£o da ParticipaÃ§Ã£o',
             'valor_aquisicao': 'Valor Investido (R$)',
             'valor_mercado_atual': 'Valor Patrimonial da Quota (R$)',
             'natureza_bem': 'Natureza do Bem',
-            'percentual_participacao': 'Percentual de Participação (%)',
+            'percentual_participacao': 'Percentual de ParticipaÃ§Ã£o (%)',
         }
         help_texts = {
-            'valor_mercado_atual': 'Valor proporcional ao % de participação',
+            'valor_mercado_atual': 'Valor proporcional ao % de participaÃ§Ã£o',
             'percentual_participacao': 'Ex: 50 para 50% das quotas',
         }
 
@@ -185,14 +216,14 @@ class InvestimentoForm(TailwindFormMixin, forms.ModelForm):
         model = Investimento
         fields = ['descricao', 'valor_aquisicao', 'valor_mercado_atual', 'natureza_bem', 'tipo', 'custodiante', 'ticker']
         labels = {
-            'descricao': 'Descrição do Investimento',
+            'descricao': 'DescriÃ§Ã£o do Investimento',
             'valor_aquisicao': 'Valor Original (R$)',
             'valor_mercado_atual': 'Valor Atual de Mercado (R$)',
             'natureza_bem': 'Natureza do Bem',
         }
         help_texts = {
-            'valor_aquisicao': 'Quanto foi pago na aquisição original',
-            'valor_mercado_atual': 'Valor atual de venda/liquidação',
+            'valor_aquisicao': 'Quanto foi pago na aquisiÃ§Ã£o original',
+            'valor_mercado_atual': 'Valor atual de venda/liquidaÃ§Ã£o',
         }
 
 class AnexoImagemForm(TailwindFormMixin, forms.ModelForm):
@@ -201,7 +232,7 @@ class AnexoImagemForm(TailwindFormMixin, forms.ModelForm):
         fields = ['imagem', 'descricao', 'tipo']
         labels = {
             'imagem': 'Arquivo',
-            'descricao': 'Descrição',
+            'descricao': 'DescriÃ§Ã£o',
             'tipo': 'Tipo de Documento',
         }
         widgets = {
@@ -348,4 +379,5 @@ class FamilyAccessUpdateForm(TailwindFormMixin, forms.Form):
             defaults={'familia': self.cleaned_data['familia']},
         )
         return self.user
+
 
