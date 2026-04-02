@@ -127,6 +127,18 @@ def _deadline_status(due_date, warning_window=30):
     }
 
 
+def _resolve_asset_instance_and_type(ativo):
+    if hasattr(ativo, 'imovel'):
+        return ativo.imovel, 'imovel'
+    if hasattr(ativo, 'veiculo'):
+        return ativo.veiculo, 'veiculo'
+    if hasattr(ativo, 'empresa'):
+        return ativo.empresa, 'empresa'
+    if hasattr(ativo, 'investimento'):
+        return ativo.investimento, 'investimento'
+    return ativo, 'ativo'
+
+
 def _person_sort_key(person):
     return (person.data_nascimento, person.nome_completo)
 
@@ -328,9 +340,9 @@ def holding_detail(request, holding_id):
     # Add type info to each ativo for template
     ativos_with_type = []
     for ativo in ativos:
-        ativo_type = ativo.__class__.__name__.lower()
+        instance, ativo_type = _resolve_asset_instance_and_type(ativo)
         ativos_with_type.append({
-            'object': ativo,
+            'object': instance,
             'type': ativo_type,
         })
 
@@ -465,6 +477,98 @@ def ativo_create_holding(request, holding_id, tipo):
     return render(request, 'crud/ativo_form_holding.html', {'form': form, 'holding': holding, 'tipo': tipo})
 
 
+@login_required
+def imovel_detail(request, imovel_id):
+    imovel = get_object_or_404(Imovel, id=imovel_id)
+    familia = _resolve_related_familia(imovel)
+    if familia:
+        _require_family_access(request.user, familia)
+
+    endereco = imovel.endereco
+    owner = imovel.proprietario
+
+    owner_context = None
+    if isinstance(owner, Holding):
+        owner_context = {
+            'label': 'Holding proprietaria',
+            'name': owner.razao_social,
+            'url_name': 'holding_detail',
+            'url_arg': owner.id,
+        }
+    elif isinstance(owner, Pessoa):
+        owner_context = {
+            'label': 'Pessoa proprietaria',
+            'name': owner.nome_completo,
+            'url_name': 'familia_detail',
+            'url_arg': owner.familia.id if owner.familia else None,
+        }
+
+    content_type = ContentType.objects.get_for_model(Imovel)
+    anexos = list(
+        AnexoImagem.objects.filter(content_type=content_type, object_id=imovel.id)
+        .select_related('created_by')
+        .order_by('-created_at')
+    )
+    imagem_principal = anexos[0] if anexos else None
+    iptu_status = _deadline_status(imovel.iptu_vencimento)
+
+    map_point = None
+    if endereco and endereco.latitude is not None and endereco.longitude is not None:
+        map_point = {
+            'id': str(imovel.id),
+            'descricao': imovel.descricao,
+            'endereco': str(endereco),
+            'lat': float(endereco.latitude),
+            'lng': float(endereco.longitude),
+            'valor': float(imovel.valor_mercado_atual),
+            'thumbnail_url': imagem_principal.imagem.url if imagem_principal else None,
+        }
+
+    obligation_cards = [
+        {
+            'label': 'IPTU anual',
+            'value': f"R$ {imovel.iptu_valor_anual}" if imovel.iptu_valor_anual else 'Nao informado',
+            'meta': imovel.iptu_index or 'Inscricao nao informada',
+            'tone': 'soft',
+        },
+        {
+            'label': 'Vencimento do IPTU',
+            'value': imovel.iptu_vencimento.strftime('%d/%m/%Y') if imovel.iptu_vencimento else 'Nao mapeado',
+            'meta': iptu_status['label'],
+            'tone': iptu_status['tone'],
+        },
+        {
+            'label': 'Coordenadas',
+            'value': f"{endereco.latitude}, {endereco.longitude}" if map_point else 'Nao georreferenciado',
+            'meta': 'Pronto para mapa' if map_point else 'Precisa latitude e longitude',
+            'tone': 'soft' if map_point else 'warm',
+        },
+    ]
+
+    detail_rows = [
+        ('Matricula', imovel.matricula),
+        ('Inscricao IPTU', imovel.iptu_index or 'Nao informada'),
+        ('Natureza do bem', imovel.get_natureza_bem_display()),
+        ('Valor de aquisicao', f'R$ {imovel.valor_aquisicao}'),
+        ('Valor de mercado', f'R$ {imovel.valor_mercado_atual}'),
+        ('Endereco', str(endereco) if endereco else 'Endereco nao estruturado'),
+        ('Endereco legado', imovel.endereco_completo or 'Nao informado'),
+    ]
+
+    return render(request, 'crud/imovel_detail.html', {
+        'imovel': imovel,
+        'familia': familia,
+        'owner_context': owner_context,
+        'imagem_principal': imagem_principal,
+        'anexos': anexos,
+        'map_point': map_point,
+        'detail_rows': detail_rows,
+        'obligation_cards': obligation_cards,
+        'iptu_status': iptu_status,
+        'endereco': endereco,
+    })
+
+
 @management_required
 def ativo_edit(request, ativo_id):
     # Need to check specific type to bind correct form
@@ -477,27 +581,23 @@ def ativo_edit(request, ativo_id):
     # We have `ativo.imovel` etc due to OneToOne implicit inheritance.
     
     ativo = get_object_or_404(Ativo, id=ativo_id)
-    instance = None
+    instance, asset_type = _resolve_asset_instance_and_type(ativo)
     FormClass = None
-    
-    if hasattr(ativo, 'imovel'):
-        instance = ativo.imovel
+    if asset_type == 'imovel':
         FormClass = ImovelForm
-    elif hasattr(ativo, 'veiculo'):
-        instance = ativo.veiculo
+    elif asset_type == 'veiculo':
         FormClass = VeiculoForm
-    elif hasattr(ativo, 'empresa'):
-        instance = ativo.empresa
+    elif asset_type == 'empresa':
         FormClass = EmpresaForm
-    elif hasattr(ativo, 'investimento'):
-        instance = ativo.investimento
+    elif asset_type == 'investimento':
         FormClass = InvestimentoForm
         
     if request.method == 'POST':
         form = FormClass(request.POST, instance=instance)
         if form.is_valid():
             form.save()
-            # Redirect based on owner type
+            if asset_type == 'imovel':
+                return redirect('imovel_detail', imovel_id=instance.id)
             if ativo.content_type.model == 'holding':
                 return redirect('holding_detail', holding_id=ativo.proprietario.id)
             else:

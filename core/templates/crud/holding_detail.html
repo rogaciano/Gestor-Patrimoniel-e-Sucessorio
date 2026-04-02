@@ -89,7 +89,11 @@
         <div class="stat-card p-5">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    {% if request.user.is_staff or request.user.is_superuser %}
+                    {% if item.type == 'imovel' %}
+                    <a href="{% url 'imovel_detail' item.object.id %}" class="text-lg font-semibold text-slate-900 hover:text-teal-700">
+                        {{ item.object.descricao }}
+                    </a>
+                    {% elif request.user.is_staff or request.user.is_superuser %}
                     <a href="{% url 'ativo_edit' item.object.id %}" class="text-lg font-semibold text-slate-900 hover:text-teal-700">
                         {{ item.object.descricao }}
                     </a>
@@ -100,6 +104,9 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-3">
                     <span class="data-chip data-chip-soft">R$ {{ item.object.valor_mercado_atual|floatformat:2 }}</span>
+                    {% if item.type == 'imovel' %}
+                    <a href="{% url 'imovel_detail' item.object.id %}" class="btn-ghost">Abrir imovel</a>
+                    {% endif %}
                     <a href="{% url 'anexo_listar' item.type item.object.id %}" class="btn-secondary">Anexos</a>
                 </div>
             </div>

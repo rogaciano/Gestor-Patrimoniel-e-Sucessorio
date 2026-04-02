@@ -1,0 +1,329 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block extra_head %}
+{% if map_point %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endif %}
+<style>
+    .asset-hero-media {
+        position: relative;
+        min-height: 22rem;
+        overflow: hidden;
+        border-radius: 2rem;
+        background:
+            radial-gradient(circle at 20% 20%, rgba(15, 118, 110, 0.18), transparent 34%),
+            linear-gradient(135deg, rgba(20, 35, 45, 0.14), rgba(255, 255, 255, 0.92));
+    }
+
+    .asset-hero-media img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .asset-map-frame {
+        overflow: hidden;
+        min-height: 24rem;
+        border-radius: 1.8rem;
+        border: 1px solid rgba(255, 255, 255, 0.72);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 244, 237, 0.96));
+        box-shadow: 0 22px 44px rgba(15, 23, 42, 0.08);
+    }
+
+    .asset-map {
+        width: 100%;
+        height: 24rem;
+    }
+
+    .asset-gallery-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    }
+
+    .asset-gallery-card {
+        overflow: hidden;
+    }
+
+    .asset-gallery-thumb {
+        height: 12rem;
+        width: 100%;
+        object-fit: cover;
+    }
+
+    .asset-map-marker {
+        background: transparent;
+        border: none;
+    }
+
+    .asset-map-pin {
+        position: relative;
+        display: block;
+        width: 1.35rem;
+        height: 1.35rem;
+        border-radius: 9999px;
+        background: linear-gradient(135deg, #0f766e, #164e63);
+        border: 3px solid rgba(255, 255, 255, 0.95);
+        box-shadow:
+            0 12px 28px rgba(15, 118, 110, 0.34),
+            0 0 0 8px rgba(15, 118, 110, 0.12);
+    }
+
+    .asset-map-pin::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 100%;
+        width: 0.48rem;
+        height: 0.48rem;
+        background: #164e63;
+        transform: translate(-50%, -0.1rem) rotate(45deg);
+        border-bottom-right-radius: 0.1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
+    <div class="glass-panel rounded-[32px] p-8 sm:p-10">
+        <p class="section-kicker">Show do Imovel</p>
+        <h1 class="section-title mt-4">{{ imovel.descricao }}</h1>
+        <p class="section-subtitle mt-5">
+            Visao completa do ativo imobiliario com localizacao, documentacao visual, agenda de IPTU e dados patrimoniais.
+        </p>
+
+        <div class="mt-8 flex flex-wrap gap-2">
+            <span class="data-chip data-chip-soft">{{ imovel.get_natureza_bem_display }}</span>
+            {% if owner_context %}
+            <span class="data-chip data-chip-warm">{{ owner_context.label }}</span>
+            {% endif %}
+            <span class="data-chip {% if iptu_status.tone == 'alert' %}data-chip-alert{% elif iptu_status.tone == 'warm' %}data-chip-warm{% else %}data-chip-soft{% endif %}">
+                {{ iptu_status.label }}
+            </span>
+        </div>
+
+        <div class="mt-8 flex flex-wrap gap-3">
+            {% if owner_context and owner_context.url_arg %}
+            <a href="{% url owner_context.url_name owner_context.url_arg %}" class="btn-secondary">Voltar ao contexto</a>
+            {% elif familia %}
+            <a href="{% url 'familia_detail' familia.id %}" class="btn-secondary">Voltar para a familia</a>
+            {% endif %}
+            <a href="{% url 'anexo_listar' 'imovel' imovel.id %}" class="btn-ghost">Ver imagens</a>
+            {% if request.user.is_staff or request.user.is_superuser %}
+            <a href="{% url 'anexo_adicionar' 'imovel' imovel.id %}" class="btn-primary">Adicionar imagem</a>
+            <a href="{% url 'ativo_edit' imovel.id %}" class="btn-accent">Editar imovel</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid gap-4 sm:grid-cols-2">
+        <div class="stat-card p-5">
+            <p class="stat-label">Valor de Mercado</p>
+            <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">R$ {{ imovel.valor_mercado_atual|intcomma }}</p>
+        </div>
+        <div class="stat-card p-5">
+            <p class="stat-label">Valor de Aquisicao</p>
+            <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">R$ {{ imovel.valor_aquisicao|intcomma }}</p>
+        </div>
+        <div class="stat-card p-5">
+            <p class="stat-label">IPTU Anual</p>
+            <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
+                {% if imovel.iptu_valor_anual %}R$ {{ imovel.iptu_valor_anual|intcomma }}{% else %}Nao informado{% endif %}
+            </p>
+        </div>
+        <div class="stat-card p-5">
+            <p class="stat-label">Imagens</p>
+            <p class="stat-value mt-3">{{ anexos|length }}</p>
+        </div>
+    </div>
+</section>
+
+<section class="mt-8 grid gap-6 xl:grid-cols-[0.95fr,1.05fr]">
+    <div class="glass-panel rounded-[32px] p-6 sm:p-8">
+        <p class="section-kicker">Imagem Principal</p>
+        <h2 class="mini-title mt-3">Leitura visual do imovel</h2>
+
+        <div class="mt-8 asset-hero-media">
+            {% if imagem_principal %}
+            <img src="{{ imagem_principal.imagem.url }}" alt="{{ imagem_principal.descricao }}">
+            <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/70 via-slate-950/10 to-transparent px-6 pb-6 pt-16 text-white">
+                <p class="text-sm font-semibold uppercase tracking-[0.16em] text-white/70">{{ imagem_principal.get_tipo_display }}</p>
+                <p class="mt-2 text-xl font-semibold">{{ imagem_principal.descricao }}</p>
+            </div>
+            {% else %}
+            <div class="flex h-full items-center justify-center px-8 text-center">
+                <div>
+                    <span class="avatar-ring">IM</span>
+                    <p class="mt-4 text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Nenhuma imagem cadastrada</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="glass-panel rounded-[32px] p-6 sm:p-8">
+        <p class="section-kicker">Ficha Tecnica</p>
+        <h2 class="mini-title mt-3">Dados completos do ativo</h2>
+
+        <div class="mt-8 grid gap-4 sm:grid-cols-2">
+            {% for label, value in detail_rows %}
+            <div class="stat-card p-5 {% if label == 'Endereco' or label == 'Endereco legado' %}sm:col-span-2{% endif %}">
+                <p class="stat-label">{{ label }}</p>
+                <p class="mt-3 text-base font-semibold leading-7 text-slate-900">{{ value }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="mt-8 grid gap-6 xl:grid-cols-[0.95fr,1.05fr]">
+    <div class="glass-panel rounded-[32px] p-6 sm:p-8">
+        <p class="section-kicker">Obrigacoes</p>
+        <h2 class="mini-title mt-3">Agenda fiscal e operacional</h2>
+
+        <div class="mt-8 grid gap-4">
+            {% for card in obligation_cards %}
+            <div class="stat-card p-5">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <p class="stat-label">{{ card.label }}</p>
+                        <p class="mt-3 text-xl font-semibold tracking-tight text-slate-900">{{ card.value }}</p>
+                    </div>
+                    <span class="data-chip {% if card.tone == 'alert' %}data-chip-alert{% elif card.tone == 'warm' %}data-chip-warm{% else %}data-chip-soft{% endif %}">
+                        {{ card.meta }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="glass-panel rounded-[32px] p-6 sm:p-8">
+        <p class="section-kicker">Mapa</p>
+        <h2 class="mini-title mt-3">Posicao do imovel</h2>
+
+        {% if map_point %}
+        <div class="mt-8 asset-map-frame">
+            <div id="imovel-map" class="asset-map"></div>
+        </div>
+        {{ map_point|json_script:"imovel-map-data" }}
+        <p class="mt-5 text-sm leading-7 text-slate-600">
+            Coordenadas validas: {{ map_point.lat }}, {{ map_point.lng }}.
+        </p>
+        {% else %}
+        <div class="empty-state mt-8 rounded-[28px] p-8 text-center">
+            <p class="text-sm text-slate-600">Este imovel ainda nao possui latitude e longitude cadastradas.</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<section class="glass-panel mt-8 rounded-[32px] p-6 sm:p-8">
+    <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+            <p class="section-kicker">Galeria</p>
+            <h2 class="mini-title mt-3">Imagens e documentos do imovel</h2>
+            <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+                Biblioteca visual completa do ativo, com acesso rapido para consulta, download e atualizacao.
+            </p>
+        </div>
+        <span class="stat-pill">{{ anexos|length }} arquivo(s)</span>
+    </div>
+
+    {% if anexos %}
+    <div class="asset-gallery-grid mt-8">
+        {% for anexo in anexos %}
+        <article class="asset-gallery-card stat-card">
+            <img src="{{ anexo.imagem.url }}" alt="{{ anexo.descricao }}" class="asset-gallery-thumb">
+            <div class="p-5">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="data-chip data-chip-soft">{{ anexo.get_tipo_display }}</span>
+                    <span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{{ anexo.created_at|date:"d/m/Y" }}</span>
+                </div>
+                <p class="mt-4 text-lg font-semibold leading-tight text-slate-900">{{ anexo.descricao }}</p>
+                {% if anexo.created_by %}
+                <p class="mt-2 text-sm text-slate-500">Enviado por {{ anexo.created_by.username }}</p>
+                {% endif %}
+                <div class="mt-6 flex flex-wrap gap-3">
+                    <a href="{{ anexo.imagem.url }}" target="_blank" class="btn-secondary">Visualizar</a>
+                    <a href="{{ anexo.imagem.url }}" download class="btn-ghost">Download</a>
+                </div>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state mt-8 rounded-[28px] p-8 text-center">
+        <p class="text-sm text-slate-600">Nenhuma imagem ou documento foi cadastrado para este imovel ainda.</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if map_point %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    (function () {
+        const mapElement = document.getElementById('imovel-map');
+        const payloadElement = document.getElementById('imovel-map-data');
+        if (!mapElement || !payloadElement || typeof L === 'undefined') {
+            return;
+        }
+
+        const point = JSON.parse(payloadElement.textContent || '{}');
+        if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
+            return;
+        }
+
+        const map = L.map(mapElement, {
+            scrollWheelZoom: false,
+            zoomControl: true,
+        }).setView([point.lat, point.lng], 15);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        const pinIcon = L.divIcon({
+            className: 'asset-map-marker',
+            html: '<span class="asset-map-pin"></span>',
+            iconSize: [22, 28],
+            iconAnchor: [11, 26],
+            popupAnchor: [0, -20],
+        });
+
+        const currencyFormatter = new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        });
+
+        const popup = [
+            '<div style="min-width:13rem;">',
+            '<p style="margin:0;font-size:0.95rem;font-weight:800;color:#14232d;">' + escapeHtml(point.descricao) + '</p>',
+            point.thumbnail_url ? '<img src="' + escapeHtml(point.thumbnail_url) + '" alt="' + escapeHtml(point.descricao) + '" style="margin-top:0.75rem;border-radius:14px;width:100%;height:9rem;object-fit:cover;">' : '',
+            '<p style="margin:0.75rem 0 0;font-size:0.82rem;line-height:1.55;color:#5e6971;">' + escapeHtml(point.endereco) + '</p>',
+            '<p style="margin:0.75rem 0 0;font-size:0.82rem;font-weight:800;color:#0f766e;">' + currencyFormatter.format(point.valor || 0) + '</p>',
+            '</div>'
+        ].join('');
+
+        L.marker([point.lat, point.lng], { icon: pinIcon }).addTo(map).bindPopup(popup).openPopup();
+        window.setTimeout(function () { map.invalidateSize(); }, 180);
+
+        function escapeHtml(value) {
+            return String(value || '').replace(/[&<>"']/g, function (match) {
+                return {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[match];
+            });
+        }
+    })();
+</script>
+{% endif %}
+{% endblock %}

@@ -25,6 +25,7 @@ urlpatterns = [
     path('pessoa/<uuid:pessoa_id>/ativo/novo/', views.ativo_select_type, name='ativo_select_type'),
     path('pessoa/<uuid:pessoa_id>/ativo/novo/<str:tipo>/', views.ativo_create, name='ativo_create'),
     path('ativo/<uuid:ativo_id>/editar/', views.ativo_edit, name='ativo_edit'),
+    path('imovel/<uuid:imovel_id>/', views.imovel_detail, name='imovel_detail'),
     
     # Anexos/Imagens
     path('anexo/<str:model_name>/<uuid:object_id>/adicionar/', views.anexo_adicionar, name='anexo_adicionar'),

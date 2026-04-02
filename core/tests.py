@@ -224,3 +224,65 @@ class AccessControlTests(TestCase):
         self.assertContains(response, 'Obrigacoes mapeadas para a proxima fase')
         self.assertContains(response, 'Ver imagens')
         self.assertContains(response, '30/04/2026')
+
+    def test_family_user_can_open_property_show_page(self):
+        endereco = Endereco.objects.create(
+            cep='70000-000',
+            logradouro='Rua das Flores',
+            numero='22',
+            complemento='Casa',
+            bairro='Centro',
+            cidade='Recife',
+            uf='PE',
+            latitude=Decimal('-8.04756200'),
+            longitude=Decimal('-34.87700200'),
+        )
+        imovel = Imovel.objects.create(
+            content_type=ContentType.objects.get_for_model(Pessoa),
+            object_id=self.person_a.id,
+            descricao='Casa Recife',
+            valor_aquisicao=Decimal('420000'),
+            valor_mercado_atual=Decimal('650000'),
+            natureza_bem='P',
+            matricula='MAT-REC-1',
+            iptu_index='IPTU-REC-1',
+            iptu_vencimento='2026-06-15',
+            endereco=endereco,
+        )
+
+        self.client.login(username='familia-a', password='senha-forte-123')
+
+        response = self.client.get(f'/imovel/{imovel.id}/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Casa Recife')
+        self.assertContains(response, 'Show do Imovel')
+        self.assertContains(response, 'Rua das Flores')
+
+    def test_family_user_cannot_open_property_from_other_family(self):
+        endereco = Endereco.objects.create(
+            cep='40000-000',
+            logradouro='Avenida Atlantica',
+            numero='500',
+            complemento='Sala 8',
+            bairro='Barra',
+            cidade='Salvador',
+            uf='BA',
+        )
+        imovel = Imovel.objects.create(
+            content_type=ContentType.objects.get_for_model(Pessoa),
+            object_id=self.person_b.id,
+            descricao='Sala Salvador',
+            valor_aquisicao=Decimal('300000'),
+            valor_mercado_atual=Decimal('470000'),
+            natureza_bem='P',
+            matricula='MAT-SSA-1',
+            iptu_index='IPTU-SSA-1',
+            endereco=endereco,
+        )
+
+        self.client.login(username='familia-a', password='senha-forte-123')
+
+        response = self.client.get(f'/imovel/{imovel.id}/')
+
+        self.assertEqual(response.status_code, 403)
