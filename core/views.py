@@ -1,14 +1,19 @@
 from functools import wraps
 
+from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import render, get_object_or_404, redirect
 
 from .models import Pessoa, Ativo, Familia, FamiliaAcesso, Holding, ParticipacaoHolding, AnexoImagem, Imovel, Veiculo, Empresa, Investimento
-from .forms import FamiliaForm, HoldingForm, ParticipacaoForm, PessoaForm, AnexoImagemForm, ImovelForm, VeiculoForm, EmpresaForm, InvestimentoForm
+from .forms import FamiliaForm, HoldingForm, ParticipacaoForm, PessoaForm, AnexoImagemForm, ImovelForm, VeiculoForm, EmpresaForm, InvestimentoForm, FamilyAccessCreateForm, FamilyAccessUpdateForm
 from domain.services.partition_engine import PartitionEngine
 from decimal import Decimal
+
+
+User = get_user_model()
 
 
 def _user_is_admin(user):
@@ -74,6 +79,13 @@ def management_required(view_func):
         return view_func(request, *args, **kwargs)
 
     return wrapped
+
+
+def _get_family_user_or_404(user_id):
+    return get_object_or_404(
+        User.objects.filter(is_staff=False, is_superuser=False),
+        pk=user_id,
+    )
 
 
 def _person_sort_key(person):
@@ -170,6 +182,60 @@ def _build_family_tree(members):
         covered_ids.update(_collect_tree_member_ids(node))
 
     return branches
+
+
+@management_required
+def acesso_list(request):
+    acessos = FamiliaAcesso.objects.select_related('user', 'familia').order_by('familia__nome', 'user__username')
+    stats = {
+        'usuarios': acessos.count(),
+        'ativos': acessos.filter(user__is_active=True).count(),
+        'familias': acessos.values('familia_id').distinct().count(),
+    }
+    return render(request, 'acessos/list.html', {
+        'acessos': acessos,
+        'stats': stats,
+    })
+
+
+@management_required
+def acesso_create(request):
+    if request.method == 'POST':
+        form = FamilyAccessCreateForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(request, f'Acesso criado para {user.username}.')
+            return redirect('acesso_list')
+    else:
+        form = FamilyAccessCreateForm()
+
+    return render(request, 'acessos/form.html', {
+        'form': form,
+        'title': 'Novo acesso de familia',
+        'subtitle': 'Crie o login, defina a senha e vincule o usuario a familia correta em um unico fluxo.',
+        'submit_label': 'Criar acesso',
+    })
+
+
+@management_required
+def acesso_edit(request, user_id):
+    user = _get_family_user_or_404(user_id)
+    if request.method == 'POST':
+        form = FamilyAccessUpdateForm(request.POST, user=user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Acesso atualizado para {user.username}.')
+            return redirect('acesso_list')
+    else:
+        form = FamilyAccessUpdateForm(user=user)
+
+    return render(request, 'acessos/form.html', {
+        'form': form,
+        'title': f'Editar acesso de {user.username}',
+        'subtitle': 'Ajuste dados de login, senha, status e familia vinculada sem usar o admin tecnico.',
+        'submit_label': 'Salvar alteracoes',
+        'managed_user': user,
+    })
 
 # --- Familia CRUD ---
 @management_required

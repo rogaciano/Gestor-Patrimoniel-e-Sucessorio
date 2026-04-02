@@ -56,6 +56,9 @@
                     {% if request.user.is_authenticated %}
                     <span class="stat-pill">{{ request.user.username }}</span>
                     <a href="{% url 'home' %}" class="btn-secondary">Carteira de Familias</a>
+                    {% if request.user.is_staff or request.user.is_superuser %}
+                    <a href="{% url 'acesso_list' %}" class="btn-secondary">Equipe e Acessos</a>
+                    {% endif %}
                     <form method="post" action="{% url 'logout' %}">
                         {% csrf_token %}
                         <button type="submit" class="btn-ghost">Sair</button>
@@ -68,6 +71,15 @@
         </nav>
 
         <main class="mx-auto w-full max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
+            {% if messages %}
+            <div class="mb-6 space-y-3">
+                {% for message in messages %}
+                <div class="glass-panel rounded-[24px] px-5 py-4 text-sm font-semibold text-slate-700">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
             <div class="fade-rise">
                 {% block content %}
                 {% endblock %}

@@ -1,5 +1,10 @@
 from django import forms
-from .models import Familia, Pessoa, Holding, ParticipacaoHolding, Endereco, AnexoImagem, Imovel, Veiculo, Empresa, Investimento
+from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.db import transaction
+
+from .models import Familia, Pessoa, Holding, ParticipacaoHolding, Endereco, AnexoImagem, Imovel, Veiculo, Empresa, Investimento, FamiliaAcesso
 
 # --- Mixin para Estilização Tailwind ---
 class TailwindFormMixin:
@@ -10,6 +15,9 @@ class TailwindFormMixin:
                 field.widget.attrs['class'] = 'app-checkbox'
             else:
                 field.widget.attrs['class'] = 'app-field'
+
+
+User = get_user_model()
 
 # --- Forms ---
 
@@ -199,4 +207,145 @@ class AnexoImagemForm(TailwindFormMixin, forms.ModelForm):
         widgets = {
             'imagem': forms.FileInput(attrs={'accept': 'image/*'}),
         }
+
+
+class FamilyAccessCreateForm(TailwindFormMixin, forms.Form):
+    username = forms.CharField(label='Usuario', max_length=150)
+    first_name = forms.CharField(label='Nome', max_length=150, required=False)
+    last_name = forms.CharField(label='Sobrenome', max_length=150, required=False)
+    email = forms.EmailField(label='Email', required=False)
+    familia = forms.ModelChoiceField(queryset=Familia.objects.none(), label='Familia')
+    password1 = forms.CharField(label='Senha', widget=forms.PasswordInput(render_value=False))
+    password2 = forms.CharField(label='Confirmar senha', widget=forms.PasswordInput(render_value=False))
+    is_active = forms.BooleanField(label='Acesso ativo', required=False, initial=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['familia'].queryset = Familia.objects.order_by('nome')
+        self.fields['username'].help_text = 'Login usado pela familia para entrar no sistema.'
+        self.fields['familia'].help_text = 'Cada usuario comum acessa apenas uma familia.'
+        self.fields['email'].help_text = 'Opcional, util para contato ou recuperacao futura.'
+
+    def clean_username(self):
+        username = self.cleaned_data['username'].strip()
+        if User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError('Ja existe um usuario com este login.')
+        return username
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get('password1')
+        password2 = cleaned_data.get('password2')
+
+        if password1 != password2:
+            self.add_error('password2', 'As senhas nao coincidem.')
+
+        if password1:
+            try:
+                validate_password(password1)
+            except ValidationError as exc:
+                self.add_error('password1', exc)
+
+        return cleaned_data
+
+    @transaction.atomic
+    def save(self):
+        user = User.objects.create_user(
+            username=self.cleaned_data['username'],
+            email=self.cleaned_data.get('email', ''),
+            password=self.cleaned_data['password1'],
+        )
+        user.first_name = self.cleaned_data.get('first_name', '')
+        user.last_name = self.cleaned_data.get('last_name', '')
+        user.is_active = self.cleaned_data.get('is_active', True)
+        user.is_staff = False
+        user.is_superuser = False
+        user.save()
+
+        FamiliaAcesso.objects.update_or_create(
+            user=user,
+            defaults={'familia': self.cleaned_data['familia']},
+        )
+        return user
+
+
+class FamilyAccessUpdateForm(TailwindFormMixin, forms.Form):
+    username = forms.CharField(label='Usuario', max_length=150)
+    first_name = forms.CharField(label='Nome', max_length=150, required=False)
+    last_name = forms.CharField(label='Sobrenome', max_length=150, required=False)
+    email = forms.EmailField(label='Email', required=False)
+    familia = forms.ModelChoiceField(queryset=Familia.objects.none(), label='Familia')
+    password1 = forms.CharField(
+        label='Nova senha',
+        widget=forms.PasswordInput(render_value=False),
+        required=False,
+    )
+    password2 = forms.CharField(
+        label='Confirmar nova senha',
+        widget=forms.PasswordInput(render_value=False),
+        required=False,
+    )
+    is_active = forms.BooleanField(label='Acesso ativo', required=False)
+
+    def __init__(self, *args, user, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+        self.fields['familia'].queryset = Familia.objects.order_by('nome')
+        access = getattr(user, 'familia_access', None)
+        self.initial.update({
+            'username': user.username,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'email': user.email,
+            'familia': access.familia if access else None,
+            'is_active': user.is_active,
+        })
+        self.fields['password1'].help_text = 'Preencha apenas se quiser trocar a senha.'
+        self.fields['familia'].help_text = 'O usuario continuara limitado a esta familia.'
+
+    def clean_username(self):
+        username = self.cleaned_data['username'].strip()
+        existing = User.objects.filter(username__iexact=username).exclude(pk=self.user.pk)
+        if existing.exists():
+            raise forms.ValidationError('Ja existe um usuario com este login.')
+        return username
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get('password1')
+        password2 = cleaned_data.get('password2')
+
+        if password1 or password2:
+            if password1 != password2:
+                self.add_error('password2', 'As senhas nao coincidem.')
+
+            if password1:
+                try:
+                    validate_password(password1, self.user)
+                except ValidationError as exc:
+                    self.add_error('password1', exc)
+
+        return cleaned_data
+
+    @transaction.atomic
+    def save(self):
+        self.user.username = self.cleaned_data['username']
+        self.user.first_name = self.cleaned_data.get('first_name', '')
+        self.user.last_name = self.cleaned_data.get('last_name', '')
+        self.user.email = self.cleaned_data.get('email', '')
+        self.user.is_active = self.cleaned_data.get('is_active', False)
+        self.user.is_staff = False
+        self.user.is_superuser = False
+
+        password = self.cleaned_data.get('password1')
+        if password:
+            self.user.set_password(password)
+
+        self.user.save()
+
+        FamiliaAcesso.objects.update_or_create(
+            user=self.user,
+            defaults={'familia': self.cleaned_data['familia']},
+        )
+        return self.user
 

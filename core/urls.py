@@ -3,6 +3,9 @@ from . import views
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('acessos/', views.acesso_list, name='acesso_list'),
+    path('acessos/novo/', views.acesso_create, name='acesso_create'),
+    path('acessos/<int:user_id>/editar/', views.acesso_edit, name='acesso_edit'),
     path('familia/nova/', views.familia_create, name='familia_create'),
     path('familia/<uuid:familia_id>/', views.familia_detail, name='familia_detail'),
     path('familia/<uuid:familia_id>/dashboard/', views.familia_dashboard, name='familia_dashboard'),

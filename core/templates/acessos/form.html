@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="max-w-5xl">
+    <div class="glass-panel rounded-[32px] p-8 sm:p-10">
+        <p class="section-kicker">Equipe e Acessos</p>
+        <h1 class="mini-title mt-3">{{ title }}</h1>
+        <p class="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
+            {{ subtitle }}
+        </p>
+
+        {% if managed_user %}
+        <div class="mt-6 flex flex-wrap gap-2">
+            <span class="data-chip data-chip-soft">@{{ managed_user.username }}</span>
+            {% if managed_user.is_active %}
+            <span class="data-chip data-chip-soft">Conta ativa</span>
+            {% else %}
+            <span class="data-chip data-chip-alert">Conta bloqueada</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if form.non_field_errors %}
+        <div class="mt-8 rounded-[24px] border border-rose-200 bg-rose-50/90 p-5">
+            <h3 class="text-sm font-extrabold uppercase tracking-[0.18em] text-rose-800">
+                Ajustes necessarios
+            </h3>
+            <ul class="mt-3 space-y-2 text-sm leading-7 text-rose-700">
+                {% for error in form.non_field_errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <form method="post" class="mt-8 space-y-8">
+            {% csrf_token %}
+
+            <div class="grid gap-6 lg:grid-cols-2">
+                <div>
+                    <label for="{{ form.username.id_for_label }}" class="mb-2 block text-sm font-semibold text-slate-800">
+                        {{ form.username.label }}
+                    </label>
+                    {{ form.username }}
+                    {% if form.username.help_text %}
+                    <p class="mt-3 text-sm leading-7 text-slate-500">{{ form.username.help_text }}</p>
+                    {% endif %}
+                    {% if form.username.errors %}
+                    <p class="mt-2 text-sm font-semibold text-rose-700">{{ form.username.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label for="{{ form.email.id_for_label }}" class="mb-2 block text-sm font-semibold text-slate-800">
+                        {{ form.email.label }}
+                    </label>
+                    {{ form.email }}
+                    {% if form.email.help_text %}
+                    <p class="mt-3 text-sm leading-7 text-slate-500">{{ form.email.help_text }}</p>
+                    {% endif %}
+                    {% if form.email.errors %}
+                    <p class="mt-2 text-sm font-semibold text-rose-700">{{ form.email.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label for="{{ form.first_name.id_for_label }}" class="mb-2 block text-sm font-semibold text-slate-800">
+                        {{ form.first_name.label }}
+                    </label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                    <p class="mt-2 text-sm font-semibold text-rose-700">{{ form.first_name.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label for="{{ form.last_name.id_for_label }}" class="mb-2 block text-sm font-semibold text-slate-800">
+                        {{ form.last_name.label }}
+                    </label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                    <p class="mt-2 text-sm font-semibold text-rose-700">{{ form.last_name.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="lg:col-span-2">
+                    <label for="{{ form.familia.id_for_label }}" class="mb-2 block text-sm font-semibold text-slate-800">
+                        {{ form.familia.label }}
+                    </label>
+                    {{ form.familia }}
+                    {% if form.familia.help_text %}
+                    <p class="mt-3 text-sm leading-7 text-slate-500">{{ form.familia.help_text }}</p>
+                    {% endif %}
+                    {% if form.familia.errors %}
+                    <p class="mt-2 text-sm font-semibold text-rose-700">{{ form.familia.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="stat-card p-6">
+                <p class="section-kicker">Seguranca</p>
+                <div class="mt-5 grid gap-6 lg:grid-cols-2">
+                    <div>
+                        <label for="{{ form.password1.id_for_label }}" class="mb-2 block text-sm font-semibold text-slate-800">
+                            {{ form.password1.label }}
+                        </label>
+                        {{ form.password1 }}
+                        {% if form.password1.help_text %}
+                        <p class="mt-3 text-sm leading-7 text-slate-500">{{ form.password1.help_text }}</p>
+                        {% endif %}
+                        {% if form.password1.errors %}
+                        <p class="mt-2 text-sm font-semibold text-rose-700">{{ form.password1.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.password2.id_for_label }}" class="mb-2 block text-sm font-semibold text-slate-800">
+                            {{ form.password2.label }}
+                        </label>
+                        {{ form.password2 }}
+                        {% if form.password2.errors %}
+                        <p class="mt-2 text-sm font-semibold text-rose-700">{{ form.password2.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="surface-divider mt-6 pt-6">
+                    <label class="flex items-start gap-3 text-sm text-slate-700">
+                        {{ form.is_active }}
+                        <span>
+                            <span class="block font-semibold text-slate-900">Permitir login deste usuario</span>
+                            <span class="mt-1 block text-sm leading-7 text-slate-500">
+                                Desmarque para bloquear o acesso sem apagar o historico nem o vinculo da familia.
+                            </span>
+                        </span>
+                    </label>
+                    {% if form.is_active.errors %}
+                    <p class="mt-2 text-sm font-semibold text-rose-700">{{ form.is_active.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="surface-divider flex flex-col gap-3 pt-6 sm:flex-row sm:justify-end">
+                <a href="{% url 'acesso_list' %}" class="btn-secondary">Cancelar</a>
+                <button type="submit" class="btn-primary">{{ submit_label }}</button>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

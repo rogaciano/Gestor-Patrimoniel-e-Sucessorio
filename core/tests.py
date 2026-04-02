@@ -117,3 +117,54 @@ class AccessControlTests(TestCase):
         response = self.client.get('/familia/nova/')
 
         self.assertEqual(response.status_code, 200)
+
+    def test_family_user_cannot_access_access_control_screen(self):
+        self.client.login(username='familia-a', password='senha-forte-123')
+
+        response = self.client.get('/acessos/')
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_can_create_family_access_through_internal_screen(self):
+        self.client.login(username='admin', password='senha-forte-123')
+
+        response = self.client.post('/acessos/novo/', {
+            'username': 'familia-b',
+            'first_name': 'Familia',
+            'last_name': 'Barbosa',
+            'email': 'barbosa@example.com',
+            'familia': str(self.family_b.id),
+            'password1': 'SenhaSegura#2026',
+            'password2': 'SenhaSegura#2026',
+            'is_active': 'on',
+        })
+
+        self.assertEqual(response.status_code, 302)
+
+        user = User.objects.get(username='familia-b')
+        self.assertFalse(user.is_staff)
+        self.assertFalse(user.is_superuser)
+        self.assertTrue(user.is_active)
+        self.assertEqual(user.familia_access.familia, self.family_b)
+
+    def test_admin_can_edit_family_access_through_internal_screen(self):
+        self.client.login(username='admin', password='senha-forte-123')
+
+        response = self.client.post(f'/acessos/{self.user.id}/editar/', {
+            'username': 'familia-a',
+            'first_name': 'Responsavel',
+            'last_name': 'Atualizado',
+            'email': 'novo-email@example.com',
+            'familia': str(self.family_b.id),
+            'password1': '',
+            'password2': '',
+            'is_active': 'on',
+        })
+
+        self.assertEqual(response.status_code, 302)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'Responsavel')
+        self.assertEqual(self.user.last_name, 'Atualizado')
+        self.assertEqual(self.user.email, 'novo-email@example.com')
+        self.assertEqual(self.user.familia_access.familia, self.family_b)

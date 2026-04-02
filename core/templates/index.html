@@ -15,6 +15,7 @@
         <div class="mt-8 flex flex-wrap gap-3">
             {% if request.user.is_staff or request.user.is_superuser %}
             <a href="{% url 'familia_create' %}" class="btn-primary">Nova Familia</a>
+            <a href="{% url 'acesso_list' %}" class="btn-secondary">Equipe e Acessos</a>
             {% endif %}
             <a href="#familias" class="btn-secondary">Explorar Carteira</a>
         </div>

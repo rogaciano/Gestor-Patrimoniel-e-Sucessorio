@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="grid gap-6 xl:grid-cols-[1.25fr,0.95fr]">
+    <div class="glass-panel rounded-[32px] p-8 sm:p-10">
+        <p class="section-kicker">Governanca de Acessos</p>
+        <h1 class="section-title mt-4">Controle quem entra e o que cada familia pode ver.</h1>
+        <p class="section-subtitle mt-5">
+            Crie logins de familia, troque senhas, bloqueie acessos e mantenha cada nucleo isolado sem depender
+            do painel tecnico do Django.
+        </p>
+
+        <div class="mt-8 flex flex-wrap gap-3">
+            <a href="{% url 'acesso_create' %}" class="btn-primary">Novo acesso de familia</a>
+            <a href="{% url 'home' %}" class="btn-ghost">Voltar ao cockpit</a>
+        </div>
+    </div>
+
+    <div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
+        <div class="stat-card p-5">
+            <p class="stat-label">Usuarios</p>
+            <p class="stat-value mt-3">{{ stats.usuarios }}</p>
+        </div>
+        <div class="stat-card p-5">
+            <p class="stat-label">Ativos</p>
+            <p class="stat-value mt-3">{{ stats.ativos }}</p>
+        </div>
+        <div class="stat-card p-5">
+            <p class="stat-label">Familias Cobertas</p>
+            <p class="stat-value mt-3">{{ stats.familias }}</p>
+        </div>
+    </div>
+</section>
+
+<section class="glass-panel mt-8 rounded-[32px] p-6 sm:p-8">
+    <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+            <p class="section-kicker">Equipe e Familias</p>
+            <h2 class="mini-title mt-3">Logins operacionais vinculados</h2>
+            <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+                Cada acesso abaixo esta amarrado a uma familia especifica. Usuarios comuns nao conseguem sair
+                desse escopo.
+            </p>
+        </div>
+        <span class="stat-pill">{{ stats.usuarios }} conta(s) gerenciadas</span>
+    </div>
+
+    <div class="mt-8 grid gap-4 lg:grid-cols-2">
+        {% for acesso in acessos %}
+        <article class="stat-card p-6">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-start gap-4">
+                    <span class="avatar-ring">{{ acesso.user.username|slice:":2"|upper }}</span>
+                    <div>
+                        <p class="text-xl font-semibold tracking-tight text-slate-900">
+                            {{ acesso.user.get_full_name|default:acesso.user.username }}
+                        </p>
+                        <p class="mt-2 text-sm text-slate-500">@{{ acesso.user.username }}</p>
+                    </div>
+                </div>
+                {% if acesso.user.is_active %}
+                <span class="data-chip data-chip-soft">Ativo</span>
+                {% else %}
+                <span class="data-chip data-chip-alert">Bloqueado</span>
+                {% endif %}
+            </div>
+
+            <div class="surface-divider mt-6 grid gap-4 pt-5 text-sm text-slate-600 sm:grid-cols-2">
+                <div>
+                    <p class="font-semibold text-slate-900">Familia vinculada</p>
+                    <p class="mt-1">{{ acesso.familia.nome }}</p>
+                </div>
+                <div>
+                    <p class="font-semibold text-slate-900">Contato</p>
+                    <p class="mt-1">{{ acesso.user.email|default:"Sem email cadastrado" }}</p>
+                </div>
+                <div>
+                    <p class="font-semibold text-slate-900">Criado em</p>
+                    <p class="mt-1">{{ acesso.created_at|date:"d/m/Y H:i" }}</p>
+                </div>
+                <div>
+                    <p class="font-semibold text-slate-900">Ultima atualizacao</p>
+                    <p class="mt-1">{{ acesso.updated_at|date:"d/m/Y H:i" }}</p>
+                </div>
+            </div>
+
+            <div class="mt-6 flex flex-wrap gap-3">
+                <a href="{% url 'acesso_edit' acesso.user.id %}" class="btn-secondary">Editar acesso</a>
+                <a href="{% url 'familia_detail' acesso.familia.id %}" class="btn-ghost">Abrir familia</a>
+            </div>
+        </article>
+        {% empty %}
+        <div class="empty-state rounded-[28px] p-10 text-center lg:col-span-2">
+            <p class="section-kicker">Sem Acessos</p>
+            <h3 class="mini-title mt-3">Nenhum login de familia cadastrado ainda</h3>
+            <p class="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-600">
+                Crie o primeiro acesso para entregar consulta segregada a um nucleo especifico.
+            </p>
+            <div class="mt-6">
+                <a href="{% url 'acesso_create' %}" class="btn-primary">Criar primeiro acesso</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}
