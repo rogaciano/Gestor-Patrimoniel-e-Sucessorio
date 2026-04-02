@@ -1,48 +1,248 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<section class="mx-auto max-w-xl">
-    <div class="glass-panel rounded-[32px] p-8 sm:p-10">
-        <p class="section-kicker">Acesso Seguro</p>
-        <h1 class="section-title mt-4">Entrar no SGPS</h1>
-        <p class="section-subtitle mt-4">
-            Administradores acessam toda a operacao. Usuarios vinculados a familia enxergam apenas o proprio nucleo.
-        </p>
+<style>
+    .login-shell {
+        display: grid;
+        gap: 1.5rem;
+        max-width: 56rem;
+    }
 
-        <form method="post" class="mt-8 space-y-5">
-            {% csrf_token %}
+    .login-hero,
+    .login-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 2rem;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 28px 60px rgba(15, 23, 42, 0.12);
+    }
 
-            {% if form.non_field_errors %}
-            <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {{ form.non_field_errors }}
+    .login-hero {
+        display: none;
+        min-height: 100%;
+        padding: 2rem;
+        background:
+            radial-gradient(circle at top left, rgba(15, 118, 110, 0.15), transparent 42%),
+            radial-gradient(circle at bottom right, rgba(200, 115, 42, 0.16), transparent 38%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.94));
+    }
+
+    .login-card {
+        padding: 2rem;
+    }
+
+    .login-kicker {
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        color: #0f766e;
+    }
+
+    .login-title {
+        margin-top: 1rem;
+        font-size: clamp(2rem, 4vw, 3.25rem);
+        line-height: 0.95;
+        letter-spacing: -0.04em;
+        color: #0f172a;
+    }
+
+    .login-copy {
+        margin-top: 1rem;
+        color: #475569;
+        font-size: 1rem;
+        line-height: 1.75;
+    }
+
+    .login-points {
+        margin-top: 2rem;
+        display: grid;
+        gap: 0.9rem;
+    }
+
+    .login-point {
+        border-radius: 1.25rem;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        background: rgba(255, 255, 255, 0.78);
+        padding: 1rem 1.1rem;
+    }
+
+    .login-point strong {
+        display: block;
+        margin-bottom: 0.35rem;
+        color: #0f172a;
+    }
+
+    .login-label {
+        display: block;
+        margin-bottom: 0.55rem;
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .login-input {
+        width: 100%;
+        border: 1px solid #cbd5e1;
+        border-radius: 1rem;
+        background: #ffffff;
+        color: #0f172a;
+        padding: 0.95rem 1rem;
+        font-size: 1rem;
+        line-height: 1.4;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+
+    .login-input::placeholder {
+        color: #94a3b8;
+    }
+
+    .login-input:focus {
+        outline: none;
+        border-color: #0f766e;
+        box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+        transform: translateY(-1px);
+    }
+
+    .login-submit {
+        width: 100%;
+        border: none;
+        border-radius: 9999px;
+        background: linear-gradient(135deg, #0f766e 0%, #164e63 100%);
+        color: #ffffff;
+        padding: 1rem 1.25rem;
+        font-size: 0.96rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        box-shadow: 0 18px 34px rgba(15, 118, 110, 0.24);
+        transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+    }
+
+    .login-submit:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.02);
+    }
+
+    .login-submit:focus {
+        outline: none;
+        box-shadow:
+            0 18px 34px rgba(15, 118, 110, 0.24),
+            0 0 0 4px rgba(15, 118, 110, 0.14);
+    }
+
+    .login-error {
+        border-radius: 1rem;
+        border: 1px solid rgba(190, 24, 93, 0.16);
+        background: rgba(255, 241, 242, 0.96);
+        color: #9f1239;
+        padding: 0.9rem 1rem;
+        font-size: 0.92rem;
+        line-height: 1.5;
+    }
+
+    .login-note {
+        margin-top: 1rem;
+        font-size: 0.86rem;
+        color: #64748b;
+        line-height: 1.6;
+    }
+
+    @media (min-width: 960px) {
+        .login-shell {
+            max-width: none;
+            grid-template-columns: 1.05fr 0.95fr;
+        }
+
+        .login-hero {
+            display: block;
+        }
+
+        .login-card {
+            padding: 2.4rem;
+        }
+    }
+</style>
+
+<section class="mx-auto max-w-6xl">
+    <div class="login-shell">
+        <aside class="login-hero">
+            <p class="login-kicker">Acesso Seguro</p>
+            <h1 class="login-title">Entre no SGPS com clareza e segregacao real.</h1>
+            <p class="login-copy">
+                O ambiente administrativo enxerga toda a operacao. O acesso da familia fica restrito ao proprio nucleo,
+                sem cruzamento de informacoes com outros casos.
+            </p>
+
+            <div class="login-points">
+                <div class="login-point">
+                    <strong>Administrador</strong>
+                    Gerencia familias, holdings, ativos, usuarios e liberacoes.
+                </div>
+                <div class="login-point">
+                    <strong>Portal da familia</strong>
+                    Consulta apenas os dados do proprio dossie patrimonial.
+                </div>
+                <div class="login-point">
+                    <strong>Controle de acesso</strong>
+                    Toda navegacao sensivel passa por permissao no backend.
+                </div>
             </div>
-            {% endif %}
+        </aside>
 
-            <div>
-                <label for="{{ form.username.id_for_label }}" class="mb-2 block text-sm font-semibold text-slate-700">Usuario</label>
-                <input
-                    id="{{ form.username.id_for_label }}"
-                    name="{{ form.username.html_name }}"
-                    type="text"
-                    value="{{ form.username.value|default:'' }}"
-                    class="app-field"
-                    autocomplete="username"
-                    required>
-            </div>
+        <div class="login-card">
+            <p class="login-kicker">Login</p>
+            <h2 class="login-title">Entrar no SGPS</h2>
+            <p class="login-copy">
+                Use seu usuario e senha para abrir o ambiente correto do sistema.
+            </p>
 
-            <div>
-                <label for="{{ form.password.id_for_label }}" class="mb-2 block text-sm font-semibold text-slate-700">Senha</label>
-                <input
-                    id="{{ form.password.id_for_label }}"
-                    name="{{ form.password.html_name }}"
-                    type="password"
-                    class="app-field"
-                    autocomplete="current-password"
-                    required>
-            </div>
+            <form method="post" class="mt-8 space-y-5">
+                {% csrf_token %}
+                {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+                {% endif %}
 
-            <button type="submit" class="btn-primary w-full justify-center">Entrar</button>
-        </form>
+                {% if form.non_field_errors %}
+                <div class="login-error">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+
+                <div>
+                    <label for="{{ form.username.id_for_label }}" class="login-label">Usuario</label>
+                    <input
+                        id="{{ form.username.id_for_label }}"
+                        name="{{ form.username.html_name }}"
+                        type="text"
+                        value="{{ form.username.value|default:'' }}"
+                        class="login-input"
+                        placeholder="Seu usuario"
+                        autocomplete="username"
+                        required>
+                </div>
+
+                <div>
+                    <label for="{{ form.password.id_for_label }}" class="login-label">Senha</label>
+                    <input
+                        id="{{ form.password.id_for_label }}"
+                        name="{{ form.password.html_name }}"
+                        type="password"
+                        class="login-input"
+                        placeholder="Sua senha"
+                        autocomplete="current-password"
+                        required>
+                </div>
+
+                <button type="submit" class="login-submit">Entrar</button>
+            </form>
+
+            <p class="login-note">
+                Se voce deveria ter acesso e ainda nao consegue entrar, o administrador precisa criar seu usuario
+                e vincular sua conta a uma familia no painel administrativo.
+            </p>
+        </div>
     </div>
 </section>
 {% endblock %}
