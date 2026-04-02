@@ -1,99 +1,77 @@
-from django.core.management.base import BaseCommand
-from core.models import Pessoa, Imovel, Veiculo, Investimento, Empresa, Familia
-from decimal import Decimal
-import datetime
+from django.core.management.base import BaseCommand, CommandError
+
+from core.seeders.demo_data import DemoSeeder
+
 
 class Command(BaseCommand):
-    help = 'Cria dados de exemplo para teste'
+    help = "Cria ou recria massa de dados demo para testes locais."
 
-    def handle(self, *args, **kwargs):
-        self.stdout.write('Criando dados de exemplo...')
-        
-        # 0. Create Family
-        familia_silva = Familia.objects.create(nome="Família Silva")
-        
-        # 1. Create People
-        joao = Pessoa.objects.create(
-            familia=familia_silva,
-            nome_completo="João Silva",
-            cpf="123.456.789-00", # Will be encrypted
-            data_nascimento=datetime.date(1960, 5, 15),
-            regime_bens="CP" # Comunhão Parcial
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--families",
+            type=int,
+            default=5,
+            help="Quantidade de famílias demo a criar.",
         )
-        
-        maria = Pessoa.objects.create(
-            familia=familia_silva,
-            nome_completo="Maria Silva",
-            cpf="987.654.321-00",
-            data_nascimento=datetime.date(1965, 8, 20),
-            conjuge=joao
+        parser.add_argument(
+            "--min-members",
+            type=int,
+            default=3,
+            help="Quantidade mínima de membros por família.",
         )
-        # Update Joao's spouse
-        joao.conjuge = maria
-        joao.save()
-        
-        filho1 = Pessoa.objects.create(
-            familia=familia_silva,
-            nome_completo="Pedro Silva",
-            cpf="111.222.333-44",
-            data_nascimento=datetime.date(1990, 1, 10),
-            pai=joao,
-            mae=maria
+        parser.add_argument(
+            "--max-members",
+            type=int,
+            default=8,
+            help="Quantidade máxima de membros por família.",
         )
-        
-        filho2 = Pessoa.objects.create(
-            familia=familia_silva,
-            nome_completo="Ana Silva",
-            cpf="555.666.777-88",
-            data_nascimento=datetime.date(1995, 3, 25),
-            pai=joao,
-            mae=maria
+        parser.add_argument(
+            "--seed",
+            type=int,
+            default=20260331,
+            help="Semente para gerar dados determinísticos.",
         )
-        
-        # 2. Create Assets
-        # Bem Comum - Casa
-        Imovel.objects.create(
-            proprietario=joao,
-            descricao="Casa na Praia",
-            valor_aquisicao=Decimal("500000.00"),
-            valor_mercado_atual=Decimal("1200000.00"),
-            natureza_bem='C', # Comum
-            matricula="12345",
-            endereco_completo="Rua da Praia, 100"
+
+    def handle(self, *args, **options):
+        families = options["families"]
+        min_members = options["min_members"]
+        max_members = options["max_members"]
+        seed = options["seed"]
+
+        if families < 1:
+            raise CommandError("--families deve ser maior que zero.")
+        if min_members < 3:
+            raise CommandError("--min-members deve ser pelo menos 3.")
+        if min_members > max_members:
+            raise CommandError("--min-members não pode ser maior que --max-members.")
+
+        self.stdout.write("Gerando massa de dados demo reutilizável...")
+
+        seeder = DemoSeeder(
+            families=families,
+            min_members=min_members,
+            max_members=max_members,
+            seed=seed,
         )
-        
-        # Bem Particular (João) - Herança anterior
-        Imovel.objects.create(
-            proprietario=joao,
-            descricao="Apartamento Antigo",
-            valor_aquisicao=Decimal("200000.00"),
-            valor_mercado_atual=Decimal("450000.00"),
-            natureza_bem='P', # Particular
-            matricula="67890",
-            endereco_completo="Rua Centro, 50"
+        summary = seeder.run()
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Seed concluído: "
+                f"{summary['familias']} famílias, "
+                f"{summary['pessoas']} pessoas, "
+                f"{summary['holdings']} holdings, "
+                f"{summary['participacoes']} participações, "
+                f"{summary['imoveis']} imóveis, "
+                f"{summary['veiculos']} veículos, "
+                f"{summary['investimentos']} investimentos e "
+                f"{summary['empresas']} participações empresariais."
+            )
         )
-        
-        # Bem Comum - Carro
-        Veiculo.objects.create(
-            proprietario=joao, # Could be Maria too, but technically listed under one, nature determines split
-            descricao="SUV de Luxo",
-            valor_aquisicao=Decimal("150000.00"),
-            valor_mercado_atual=Decimal("120000.00"),
-            natureza_bem='C',
-            renavam_enc="999999999",
-            placa="ABC-1234",
-            modelo_ano="2022"
+        self.stdout.write(
+            "Dados demo anteriores removidos nesta execução: "
+            f"{summary['familias_removidas']} famílias, "
+            f"{summary['pessoas_removidas']} pessoas, "
+            f"{summary['holdings_removidas']} holdings e "
+            f"{summary['ativos_removidos']} ativos."
         )
-        
-        # Investimento (Comum)
-        Investimento.objects.create(
-            proprietario=joao,
-            descricao="CDB Banco X",
-            valor_aquisicao=Decimal("50000.00"),
-            valor_mercado_atual=Decimal("65000.00"),
-            natureza_bem='C',
-            tipo="CDB",
-            custodiante="Banco X"
-        )
-        
-        self.stdout.write(self.style.SUCCESS(f'Dados criados! ID do João: {joao.id}'))
