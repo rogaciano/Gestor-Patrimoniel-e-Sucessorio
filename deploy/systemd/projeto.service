@@ -1,4 +1,4 @@
-﻿[Unit]
+[Unit]
 Description=SGPS Gunicorn
 After=network.target postgresql.service
 Requires=postgresql.service
