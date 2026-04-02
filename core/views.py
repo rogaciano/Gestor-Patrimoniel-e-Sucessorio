@@ -660,16 +660,23 @@ def familia_dashboard(request, familia_id):
             distribuicao_geo[imovel.endereco.uf] += 1
     
     # Imóveis com coordenadas para mapa
-    imoveis_mapa = [
-        {
-            'descricao': i.descricao,
-            'endereco': str(i.endereco) if i.endereco else 'N/A',
-            'lat': float(i.endereco.latitude) if i.endereco and i.endereco.latitude else None,
-            'lng': float(i.endereco.longitude) if i.endereco and i.endereco.longitude else None,
-            'valor': float(i.valor_mercado_atual),
-        }
-        for i in imoveis if i.endereco
-    ]
+    imoveis_mapa = []
+    for imovel in imoveis:
+        endereco = imovel.endereco
+        if not endereco or endereco.latitude is None or endereco.longitude is None:
+            continue
+
+        imoveis_mapa.append({
+            'descricao': imovel.descricao,
+            'endereco': str(endereco),
+            'uf': endereco.uf,
+            'lat': float(endereco.latitude),
+            'lng': float(endereco.longitude),
+            'valor': float(imovel.valor_mercado_atual),
+        })
+
+    stats['imoveis_georreferenciados'] = len(imoveis_mapa)
+    stats['imoveis_sem_coordenadas'] = max(stats['imoveis_count'] - stats['imoveis_georreferenciados'], 0)
     
     context = {
         'familia': familia,

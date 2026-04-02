@@ -1,12 +1,13 @@
 from decimal import Decimal
 from io import StringIO
 
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.db.models import Sum
 from django.test import TestCase
 
-from core.models import Empresa, Familia, FamiliaAcesso, Holding, Imovel, Investimento, ParticipacaoHolding, Pessoa, Veiculo
+from core.models import Empresa, Endereco, Familia, FamiliaAcesso, Holding, Imovel, Investimento, ParticipacaoHolding, Pessoa, Veiculo
 from core.seeders.demo_data import DEMO_FAMILY_PREFIX
 
 
@@ -168,3 +169,36 @@ class AccessControlTests(TestCase):
         self.assertEqual(self.user.last_name, 'Atualizado')
         self.assertEqual(self.user.email, 'novo-email@example.com')
         self.assertEqual(self.user.familia_access.familia, self.family_b)
+
+    def test_dashboard_renders_geographic_map_for_georeferenced_properties(self):
+        endereco = Endereco.objects.create(
+            cep='60000-000',
+            logradouro='Av. Beira Mar',
+            numero='100',
+            complemento='Apto 1201',
+            bairro='Meireles',
+            cidade='Fortaleza',
+            uf='CE',
+            latitude=Decimal('-3.73186200'),
+            longitude=Decimal('-38.49648300'),
+        )
+        Imovel.objects.create(
+            content_type=ContentType.objects.get_for_model(Pessoa),
+            object_id=self.person_a.id,
+            descricao='Apartamento Beira Mar',
+            valor_aquisicao=Decimal('850000'),
+            valor_mercado_atual=Decimal('1250000'),
+            natureza_bem='P',
+            matricula='MAT-001',
+            iptu_index='IPTU-001',
+            endereco=endereco,
+        )
+
+        self.client.login(username='admin', password='senha-forte-123')
+
+        response = self.client.get(f'/familia/{self.family_a.id}/dashboard/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'family-geo-map')
+        self.assertContains(response, 'Apartamento Beira Mar')
+        self.assertContains(response, 'Fortaleza')
