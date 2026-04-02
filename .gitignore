@@ -13,6 +13,8 @@ env/
 ENV/
 .env
 .venv
+!deploy/env/
+!deploy/env/*.example
 
 # Django
 *.log
