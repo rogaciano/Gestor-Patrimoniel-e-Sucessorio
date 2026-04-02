@@ -1,71 +1,117 @@
 {% extends 'base.html' %}
+{% load humanize %}
 
 {% block content %}
-<div class="space-y-6">
-    <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-        Simulação de Partilha
-    </h2>
+<section class="glass-panel rounded-[32px] p-8 sm:p-10">
+    <p class="section-kicker">Cenário Sucessório</p>
+    <h1 class="section-title mt-4">Simulação de partilha</h1>
+    <p class="section-subtitle mt-5">
+        Leitura consolidada para {{ pessoa.nome_completo }}, combinando patrimônio direto, patrimônio indireto via holdings
+        e estimativa fiscal do cenário atual.
+    </p>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-6">
-        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 shadow-sm">
-            <h3 class="text-blue-700 font-bold uppercase text-xs">Meação (Cônjuge)</h3>
-            <p class="text-2xl font-semibold text-blue-900">R$ {{ resumo.meacao_conjuge|floatformat:2 }}</p>
-            <small class="text-blue-600">Direito pelo regime de bens</small>
-        </div>
-
-        <div class="bg-green-50 border-l-4 border-green-500 p-4 shadow-sm">
-            <h3 class="text-green-700 font-bold uppercase text-xs">Monte-Mor (Herança)</h3>
-            <p class="text-2xl font-semibold text-green-900">R$ {{ resumo.heranca_total|floatformat:2 }}</p>
-            <small class="text-green-600">Valor a ser partilhado</small>
-        </div>
-
-        <div class="bg-red-50 border-l-4 border-red-500 p-4 shadow-sm">
-            <h3 class="text-red-700 font-bold uppercase text-xs">ITCMD Estimado (4%)</h3>
-            <p class="text-2xl font-semibold text-red-900">R$ {{ resumo.itcmd_estimado|floatformat:2 }}</p>
-            <small class="text-red-600">Baseado no total da herança (aprox)</small>
-        </div>
+    <div class="mt-8 flex flex-wrap gap-2">
+        {% if pessoa.regime_bens %}
+        <span class="data-chip data-chip-soft">{{ pessoa.get_regime_bens_display }}</span>
+        {% endif %}
+        <span class="data-chip data-chip-warm">{{ pessoa.familia.nome }}</span>
+        {% if pessoa.conjuge %}
+        <span class="data-chip data-chip-soft">Com cônjuge</span>
+        {% endif %}
     </div>
+</section>
 
-    <!-- Detalhamento: Ativos via Holdings -->
-    {% if resumo.ativos_indiretos %}
-    <div class="bg-purple-50 border-l-4 border-purple-500 p-6 shadow-sm mt-6">
-        <h3 class="text-purple-700 font-bold uppercase text-sm mb-4">
-            🏢 Patrimônio Indireto via Holdings
-        </h3>
+<section class="mt-8 grid gap-4 lg:grid-cols-3">
+    <div class="stat-card p-6">
+        <p class="stat-label">Meação</p>
+        <p class="stat-value mt-3">R$ {{ resumo.meacao_conjuge|floatformat:2 }}</p>
+        <p class="mt-3 text-sm leading-7 text-slate-600">Direito patrimonial do cônjuge conforme o regime de bens.</p>
+    </div>
+    <div class="stat-card p-6">
+        <p class="stat-label">Herança</p>
+        <p class="stat-value mt-3">R$ {{ resumo.heranca_total|floatformat:2 }}</p>
+        <p class="mt-3 text-sm leading-7 text-slate-600">Montante estimado para divisão sucessória no cenário atual.</p>
+    </div>
+    <div class="stat-card p-6">
+        <p class="stat-label">ITCMD</p>
+        <p class="stat-value mt-3">R$ {{ resumo.itcmd_estimado|floatformat:2 }}</p>
+        <p class="mt-3 text-sm leading-7 text-slate-600">Estimativa simples com alíquota de 4% sobre a herança.</p>
+    </div>
+</section>
 
-        {% if resumo.ativos_indiretos.comuns %}
-        <div class="mb-4">
-            <p class="text-sm font-semibold text-purple-900 mb-2">Bens Comuns:</p>
-            <ul class="text-sm text-purple-700 space-y-1">
-                {% for ativo in resumo.ativos_indiretos.comuns %}
-                <li>• {{ ativo.holding }}: R$ {{ ativo.valor|intcomma }}</li>
-                {% endfor %}
-            </ul>
+<section class="mt-8 grid gap-6 xl:grid-cols-[1.1fr,0.9fr]">
+    <div class="glass-panel rounded-[32px] p-6 sm:p-8">
+        <p class="section-kicker">Patrimônio Indireto</p>
+        <h2 class="mini-title mt-3">Ativos via holdings</h2>
+
+        {% if resumo.ativos_indiretos.comuns or resumo.ativos_indiretos.particulares %}
+        <div class="mt-8 space-y-6">
+            {% if resumo.ativos_indiretos.comuns %}
+            <div>
+                <p class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Bens comuns</p>
+                <div class="mt-4 space-y-3">
+                    {% for ativo in resumo.ativos_indiretos.comuns %}
+                    <div class="stat-card p-4">
+                        <p class="font-semibold text-slate-900">{{ ativo.holding }}</p>
+                        <p class="mt-2 text-sm text-slate-500">Participação comum atribuída ao cenário</p>
+                        <p class="mt-3 text-lg font-semibold text-slate-900">R$ {{ ativo.valor|intcomma }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if resumo.ativos_indiretos.particulares %}
+            <div>
+                <p class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Bens particulares</p>
+                <div class="mt-4 space-y-3">
+                    {% for ativo in resumo.ativos_indiretos.particulares %}
+                    <div class="stat-card p-4">
+                        <p class="font-semibold text-slate-900">{{ ativo.holding }}</p>
+                        <p class="mt-2 text-sm text-slate-500">Participação particular atribuída ao cenário</p>
+                        <p class="mt-3 text-lg font-semibold text-slate-900">R$ {{ ativo.valor|intcomma }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state mt-8 rounded-[28px] p-8 text-center">
+            <p class="text-sm text-slate-600">Não há patrimônio indireto via holdings para este perfil neste momento.</p>
         </div>
         {% endif %}
+    </div>
 
-        {% if resumo.ativos_indiretos.particulares %}
-        <div>
-            <p class="text-sm font-semibold text-purple-900 mb-2">Bens Particulares:</p>
-            <ul class="text-sm text-purple-700 space-y-1">
-                {% for ativo in resumo.ativos_indiretos.particulares %}
-                <li>• {{ ativo.holding }}: R$ {{ ativo.valor|intcomma }}</li>
-                {% endfor %}
-            </ul>
+    <div class="glass-panel rounded-[32px] p-6 sm:p-8">
+        <p class="section-kicker">Leitura Rápida</p>
+        <h2 class="mini-title mt-3">Resumo econômico</h2>
+
+        <div class="mt-8 space-y-4">
+            <div class="stat-card p-5">
+                <p class="stat-label">Legítima</p>
+                <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">R$ {{ resumo.legitima|floatformat:2 }}</p>
+            </div>
+            <div class="stat-card p-5">
+                <p class="stat-label">Parte disponível</p>
+                <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">R$ {{ resumo.disponivel|floatformat:2 }}</p>
+            </div>
+            <div class="stat-card p-5">
+                <p class="stat-label">Valor por herdeiro</p>
+                <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">R$ {{ resumo.valor_por_herdeiro|floatformat:2 }}</p>
+            </div>
         </div>
-        {% endif %}
 
-        <p class="text-xs text-purple-600 mt-4">
-            * Valores calculados com base no percentual de participação nas holdings
-        </p>
+        <div class="surface-divider mt-8 pt-6">
+            <p class="text-sm leading-7 text-slate-600">
+                Esta leitura é uma aproximação operacional para discussão e comparação de cenários. Em fluxos reais,
+                o cálculo jurídico-fiscal definitivo depende de regime, composição da herança e concorrência sucessória aplicável.
+            </p>
+        </div>
     </div>
-    {% endif %}
+</section>
 
-    <div class="mt-8">
-        <a href="{% url 'familia_detail' pessoa.familia.id %}"
-            class="text-indigo-600 hover:text-indigo-900 flex items-center">
-            ← Voltar para a Família
-        </a>
-    </div>
+<div class="mt-8">
+    <a href="{% url 'familia_detail' pessoa.familia.id %}" class="btn-secondary">Voltar para a Família</a>
 </div>
 {% endblock %}

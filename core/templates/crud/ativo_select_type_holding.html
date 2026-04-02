@@ -1,72 +1,34 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="bg-white shadow sm:rounded-lg">
-    <div class="px-4 py-5 sm:p-6">
-        <h3 class="text-lg leading-6 font-medium text-gray-900">
-            Adicionar Ativo à Holding
-        </h3>
-        <div class="mt-2 max-w-xl text-sm text-gray-500">
-            <p>Escolha o tipo de ativo para {{ holding.razao_social }}</p>
-        </div>
+<section class="glass-panel rounded-[32px] p-8 sm:p-10">
+    <p class="section-kicker">Portfólio da Holding</p>
+    <h1 class="mini-title mt-3">Escolha a classe patrimonial</h1>
+    <p class="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
+        Selecione o tipo de ativo que será vinculado à holding {{ holding.razao_social }}.
+    </p>
 
-        <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <a href="{% url 'ativo_create_holding' holding.id 'imovel' %}"
-                class="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
-                <div class="flex-shrink-0">
-                    <span class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-                        🏠
-                    </span>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <span class="absolute inset-0" aria-hidden="true"></span>
-                    <p class="text-sm font-medium text-gray-900">Imóvel</p>
-                    <p class="text-sm text-gray-500">Casas, Apartamentos, Terrenos</p>
-                </div>
-            </a>
-
-            <a href="{% url 'ativo_create_holding' holding.id 'veiculo' %}"
-                class="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
-                <div class="flex-shrink-0">
-                    <span class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                        🚗
-                    </span>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <span class="absolute inset-0" aria-hidden="true"></span>
-                    <p class="text-sm font-medium text-gray-900">Veículo</p>
-                    <p class="text-sm text-gray-500">Carros, Motos, Embarcações</p>
-                </div>
-            </a>
-
-            <a href="{% url 'ativo_create_holding' holding.id 'empresa' %}"
-                class="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
-                <div class="flex-shrink-0">
-                    <span class="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                        🏢
-                    </span>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <span class="absolute inset-0" aria-hidden="true"></span>
-                    <p class="text-sm font-medium text-gray-900">Empresa</p>
-                    <p class="text-sm text-gray-500">Quotas, Ações Ltda/SA</p>
-                </div>
-            </a>
-
-            <a href="{% url 'ativo_create_holding' holding.id 'investimento' %}"
-                class="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
-                <div class="flex-shrink-0">
-                    <span class="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
-                        📈
-                    </span>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <span class="absolute inset-0" aria-hidden="true"></span>
-                    <p class="text-sm font-medium text-gray-900">Investimento</p>
-                    <p class="text-sm text-gray-500">CDB, FIIs, Tesouro</p>
-                </div>
-            </a>
-        </div>
+    <div class="mt-8 grid gap-4 sm:grid-cols-2">
+        <a href="{% url 'ativo_create_holding' holding.id 'imovel' %}" class="stat-card block p-6 transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_42px_rgba(15,23,42,0.12)]">
+            <span class="avatar-ring">IM</span>
+            <p class="mt-5 text-xl font-semibold text-slate-900">Imóvel</p>
+            <p class="mt-2 text-sm leading-7 text-slate-600">Patrimônio imobiliário da estrutura societária.</p>
+        </a>
+        <a href="{% url 'ativo_create_holding' holding.id 'veiculo' %}" class="stat-card block p-6 transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_42px_rgba(15,23,42,0.12)]">
+            <span class="avatar-ring">VH</span>
+            <p class="mt-5 text-xl font-semibold text-slate-900">Veículo</p>
+            <p class="mt-2 text-sm leading-7 text-slate-600">Veículos e demais bens móveis registrados na holding.</p>
+        </a>
+        <a href="{% url 'ativo_create_holding' holding.id 'empresa' %}" class="stat-card block p-6 transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_42px_rgba(15,23,42,0.12)]">
+            <span class="avatar-ring">PJ</span>
+            <p class="mt-5 text-xl font-semibold text-slate-900">Empresa</p>
+            <p class="mt-2 text-sm leading-7 text-slate-600">Participações operacionais e controladas da estrutura.</p>
+        </a>
+        <a href="{% url 'ativo_create_holding' holding.id 'investimento' %}" class="stat-card block p-6 transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_42px_rgba(15,23,42,0.12)]">
+            <span class="avatar-ring">IV</span>
+            <p class="mt-5 text-xl font-semibold text-slate-900">Investimento</p>
+            <p class="mt-2 text-sm leading-7 text-slate-600">Caixa aplicado, carteira e reservas financeiras da holding.</p>
+        </a>
     </div>
-</div>
+</section>
 {% endblock %}

@@ -1,17 +1,16 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="bg-white shadow sm:rounded-lg">
-    <div class="px-4 py-5 sm:p-6">
-        <h3 class="text-lg leading-6 font-medium text-gray-900">
-            {{ title|default:"Cadastro" }}
-        </h3>
-        <div class="mt-2 max-w-xl text-sm text-gray-500">
-            <p>Preencha as informações da Família / Caso.</p>
-        </div>
-        <form class="mt-5" method="POST">
+<section class="max-w-4xl">
+    <div class="glass-panel rounded-[32px] p-8 sm:p-10">
+        <p class="section-kicker">Cadastro</p>
+        <h1 class="mini-title mt-3">{{ title|default:"Cadastro de Família" }}</h1>
+        <p class="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
+            Abra um novo dossiê familiar ou ajuste o nome do caso para manter a carteira organizada.
+        </p>
+        <form class="mt-8" method="POST">
             {% include 'partials/form_generic.html' %}
         </form>
     </div>
-</div>
+</section>
 {% endblock %}

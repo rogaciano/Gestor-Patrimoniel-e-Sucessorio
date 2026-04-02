@@ -7,10 +7,9 @@ class TailwindFormMixin:
         super().__init__(*args, **kwargs)
         for field_name, field in self.fields.items():
             if isinstance(field.widget, forms.CheckboxInput):
-                field.widget.attrs['class'] = 'h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'
+                field.widget.attrs['class'] = 'app-checkbox'
             else:
-                # Added 'border', 'border-gray-400', 'px-3', 'py-2' for better visibility
-                field.widget.attrs['class'] = 'mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border border-gray-400 rounded-md px-3 py-2'
+                field.widget.attrs['class'] = 'app-field'
 
 # --- Forms ---
 
