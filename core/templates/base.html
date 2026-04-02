@@ -56,9 +56,6 @@
                     {% if request.user.is_authenticated %}
                     <span class="stat-pill">{{ request.user.username }}</span>
                     <a href="{% url 'home' %}" class="btn-secondary">Carteira de Familias</a>
-                    {% if request.user.is_staff or request.user.is_superuser %}
-                    <a href="{% url 'admin:index' %}" class="btn-secondary">Admin</a>
-                    {% endif %}
                     <form method="post" action="{% url 'logout' %}">
                         {% csrf_token %}
                         <button type="submit" class="btn-ghost">Sair</button>
